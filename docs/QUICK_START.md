@@ -81,6 +81,38 @@ lab on myserver
 
 # Power off
 lab off myserver
+
+# Check status
+lab status
+
+# Live monitoring with smooth in-place updates (every 5 seconds)
+lab status -f
+
+# Custom refresh intervals
+lab status -f 0.5    # Fast: every 500ms
+lab status -f 60     # Slow: every minute
+```
+
+**Tip:** Live monitoring uses efficient ANSI cursor positioning to update only changed values without screen flicker! Press **'q'** or **Ctrl+C** to exit.
+
+### Cost Tracking
+
+```bash
+# Set electricity price (EUR or USD per kWh)
+lab set price 0.2721
+
+# Check current price setting
+lab get price
+
+# Status will now show costs
+lab status
+```
+
+**Example output with price set:**
+```
+Current: 45.2W (0.0123€/h)
+Today: 543Wh (0.1477€)
+Month: 15.2kWh (4.1359€)
 ```
 
 ## 📱 Using Telegram Bot

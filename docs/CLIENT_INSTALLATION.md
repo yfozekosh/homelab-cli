@@ -149,7 +149,39 @@ lab on server1
 
 # Power off a server
 lab off server1
+
+# Show status of all devices
+lab status
+
+# Live monitoring with efficient in-place updates (press 'q' or Ctrl+C to stop)
+lab status -f           # Default: 5 second refresh
+
+# Custom refresh intervals
+lab status -f 0.5       # Fast: 500 milliseconds
+lab status -f 10        # Moderate: 10 seconds  
+lab status -f 60        # Slow: 1 minute
 ```
+
+**Performance Note:** The live monitoring mode uses ANSI terminal control codes to update only the lines that changed, providing smooth, flicker-free updates without clearing the screen. Exit by pressing **'q'** or **Ctrl+C**.
+
+### Energy Cost Tracking
+
+```bash
+# Set your electricity price (per kWh in EUR/USD)
+lab set price 0.2721
+
+# View current price setting
+lab get price
+
+# Status will automatically show cost calculations
+lab status
+```
+
+**How it works:**
+- Current power cost per hour calculated from instantaneous power draw
+- Daily and monthly costs calculated from energy usage (Wh)
+- Costs displayed alongside energy metrics in status output
+- Example: `Current: 45.2W (0.0123€/h)` or `Today: 543Wh (0.1477€)`
 
 ### Help
 

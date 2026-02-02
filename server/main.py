@@ -76,6 +76,10 @@ class PowerAction(BaseModel):
     name: str
 
 
+class ElectricityPrice(BaseModel):
+    price: float  # Price per kWh
+
+
 # Global services
 config: Config = None
 plug_service: PlugService = None
@@ -322,6 +326,20 @@ async def power_off_server(action: PowerAction):
     except Exception as e:
         logger.error(f"Failed to power off server: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/settings/electricity-price", dependencies=[Depends(verify_api_key)])
+async def set_electricity_price(price_data: ElectricityPrice):
+    """Set electricity price per kWh"""
+    config.set_electricity_price(price_data.price)
+    return {"message": f"Electricity price set to {price_data.price}", "price": price_data.price}
+
+
+@app.get("/settings/electricity-price", dependencies=[Depends(verify_api_key)])
+async def get_electricity_price():
+    """Get current electricity price per kWh"""
+    price = config.get_electricity_price()
+    return {"price": price}
 
 
 if __name__ == "__main__":

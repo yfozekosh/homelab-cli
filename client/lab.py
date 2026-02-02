@@ -6,6 +6,9 @@ import sys
 import os
 import json
 import argparse
+import time
+import select
+import threading
 from pathlib import Path
 from typing import Optional
 import requests
@@ -262,66 +265,247 @@ class HomelabClient:
             print(f"❌ Error: {e}")
             sys.exit(1)
 
-    def get_status(self):
-        """Get comprehensive status of all servers and plugs"""
+    def set_electricity_price(self, price: float):
+        """Set electricity price per kWh"""
         try:
-            response = requests.get(
-                f"{self.server_url}/status",
+            response = requests.post(
+                f"{self.server_url}/settings/electricity-price",
                 headers=self.headers,
-                timeout=30
+                json={"price": price},
+                timeout=10
             )
             response.raise_for_status()
-            status = response.json()
-            
-            # Print summary
-            summary = status["summary"]
-            print("\n" + "=" * 70)
-            print(" HOMELAB STATUS".center(70))
-            print("=" * 70)
-            print(f"\n📊 Summary:")
-            print(f"   Servers: {summary['servers_online']}/{summary['servers_total']} online")
-            print(f"   Plugs:   {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)")
-            print(f"   Power:   {summary['total_power']:.1f}W total")
-            
-            # Print servers
-            if status["servers"]:
-                print(f"\n🖥️  Servers:")
-                print("-" * 70)
-                for server in status["servers"]:
-                    status_icon = "🟢" if server["online"] else "🔴"
-                    print(f"\n  {status_icon} {server['name']}")
-                    print(f"     Hostname: {server['hostname']}")
-                    print(f"     IP: {server['ip']}")
-                    
-                    if server["online"] and server.get("uptime"):
-                        print(f"     Uptime: {server['uptime']}")
-                    elif not server["online"] and server.get("downtime"):
-                        print(f"     Downtime: {server['downtime']}")
-                    
-                    if server.get("power"):
-                        power = server["power"]
-                        print(f"     Power: {power['current']}W (today: {power['today_energy']}Wh, month: {power['month_energy']}Wh)")
-            
-            # Print plugs
-            if status["plugs"]:
-                print(f"\n🔌 Plugs:")
-                print("-" * 70)
-                for plug in status["plugs"]:
-                    if plug.get("online"):
-                        state_icon = "⚡" if plug["state"] == "on" else "⭕"
-                        print(f"\n  {state_icon} {plug['name']} ({plug['ip']})")
-                        print(f"     State: {plug['state'].upper()}")
-                        print(f"     Current: {plug['current_power']}W")
-                        print(f"     Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)")
-                        print(f"     Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)")
-                    else:
-                        print(f"\n  ❌ {plug['name']} ({plug['ip']}) - OFFLINE")
-            
-            print("\n" + "=" * 70 + "\n")
-            
+            result = response.json()
+            print(f"✓ Electricity price set to {price} per kWh")
         except requests.exceptions.RequestException as e:
             print(f"❌ Error: {e}")
             sys.exit(1)
+    
+    def get_electricity_price(self):
+        """Get current electricity price"""
+        try:
+            response = requests.get(
+                f"{self.server_url}/settings/electricity-price",
+                headers=self.headers,
+                timeout=10
+            )
+            response.raise_for_status()
+            result = response.json()
+            price = result.get("price", 0.0)
+            if price > 0:
+                print(f"💰 Current electricity price: {price} per kWh")
+            else:
+                print(f"💰 No electricity price set (set with: lab set price <value>)")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error: {e}")
+            sys.exit(1)
+
+    def _format_status_output(self, status: dict, timestamp: str, follow_interval: Optional[float]) -> list:
+        """Format status data into lines for display"""
+        lines = []
+        summary = status["summary"]
+        
+        lines.append("=" * 70)
+        lines.append(" HOMELAB STATUS".center(70))
+        if follow_interval is not None:
+            lines.append(f" Updated: {timestamp} (refresh: {follow_interval}s)".center(70))
+        lines.append("=" * 70)
+        lines.append("")
+        lines.append("📊 Summary:")
+        lines.append(f"   Servers: {summary['servers_online']}/{summary['servers_total']} online")
+        lines.append(f"   Plugs:   {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)")
+        lines.append(f"   Power:   {summary['total_power']:.1f}W total")
+        
+        # Servers section
+        if status["servers"]:
+            lines.append("")
+            lines.append("🖥️  Servers:")
+            lines.append("-" * 70)
+            for server in status["servers"]:
+                status_icon = "🟢" if server["online"] else "🔴"
+                lines.append("")
+                lines.append(f"  {status_icon} {server['name']}")
+                lines.append(f"     Hostname: {server['hostname']}")
+                lines.append(f"     IP: {server['ip']}")
+                
+                if server["online"] and server.get("uptime"):
+                    lines.append(f"     Uptime: {server['uptime']}")
+                elif not server["online"] and server.get("downtime"):
+                    lines.append(f"     Downtime: {server['downtime']}")
+                
+                if server.get("power"):
+                    power = server["power"]
+                    power_line = f"     Power: {power['current']}W"
+                    if power.get('current_cost_per_hour', 0) > 0:
+                        power_line += f" ({power['current_cost_per_hour']}€/h)"
+                    lines.append(power_line)
+                    
+                    energy_line = f"     Today: {power['today_energy']}Wh"
+                    if power.get('today_cost', 0) > 0:
+                        energy_line += f" ({power['today_cost']}€)"
+                    lines.append(energy_line)
+                    
+                    month_line = f"     Month: {power['month_energy']}Wh"
+                    if power.get('month_cost', 0) > 0:
+                        month_line += f" ({power['month_cost']}€)"
+                    lines.append(month_line)
+        
+        # Plugs section
+        if status["plugs"]:
+            lines.append("")
+            lines.append("🔌 Plugs:")
+            lines.append("-" * 70)
+            for plug in status["plugs"]:
+                if plug.get("online"):
+                    state_icon = "⚡" if plug["state"] == "on" else "⭕"
+                    lines.append("")
+                    lines.append(f"  {state_icon} {plug['name']} ({plug['ip']})")
+                    lines.append(f"     State: {plug['state'].upper()}")
+                    
+                    current_line = f"     Current: {plug['current_power']}W"
+                    if plug.get('current_cost_per_hour', 0) > 0:
+                        current_line += f" ({plug['current_cost_per_hour']}€/h)"
+                    lines.append(current_line)
+                    
+                    today_line = f"     Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
+                    if plug.get('today_cost', 0) > 0:
+                        today_line += f" - {plug['today_cost']}€"
+                    lines.append(today_line)
+                    
+                    month_line = f"     Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
+                    if plug.get('month_cost', 0) > 0:
+                        month_line += f" - {plug['month_cost']}€"
+                    lines.append(month_line)
+                else:
+                    lines.append("")
+                    lines.append(f"  ❌ {plug['name']} ({plug['ip']}) - OFFLINE")
+        
+        lines.append("")
+        lines.append("=" * 70)
+        
+        if follow_interval is not None:
+            lines.append("")
+            lines.append("Press 'q' or Ctrl+C to exit...")
+        
+        return lines
+
+    def _wait_for_input(self, interval: float, stop_event: threading.Event) -> bool:
+        """Wait for interval or keyboard input
+        
+        Args:
+            interval: Time to wait in seconds
+            stop_event: Event to signal early exit
+            
+        Returns:
+            True if should continue, False if should exit
+        """
+        start_time = time.time()
+        
+        while time.time() - start_time < interval:
+            if stop_event.is_set():
+                return False
+            
+            # Check for keyboard input (Unix-like systems)
+            if os.name != 'nt':  # Unix/Linux/macOS
+                if select.select([sys.stdin], [], [], 0.1)[0]:
+                    char = sys.stdin.read(1)
+                    if char.lower() == 'q':
+                        return False
+            else:  # Windows
+                # On Windows, use msvcrt if available
+                try:
+                    import msvcrt
+                    if msvcrt.kbhit():
+                        char = msvcrt.getch().decode('utf-8', errors='ignore')
+                        if char.lower() == 'q':
+                            return False
+                except ImportError:
+                    pass
+            
+            time.sleep(0.1)
+        
+        return True
+
+    def get_status(self, follow_interval: Optional[float] = None):
+        """Get comprehensive status of all servers and plugs
+        
+        Args:
+            follow_interval: If provided, continuously update at this interval (in seconds)
+        """
+        prev_lines = []
+        stop_event = threading.Event()
+        
+        # Set terminal to raw mode for non-blocking input (Unix only)
+        old_settings = None
+        if follow_interval is not None and os.name != 'nt':
+            try:
+                import tty
+                import termios
+                old_settings = termios.tcgetattr(sys.stdin)
+                tty.setcbreak(sys.stdin.fileno())
+            except (ImportError, OSError):
+                pass
+        
+        try:
+            first_run = True
+            while True:
+                response = requests.get(
+                    f"{self.server_url}/status",
+                    headers=self.headers,
+                    timeout=30
+                )
+                response.raise_for_status()
+                status = response.json()
+                
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                current_lines = self._format_status_output(status, timestamp, follow_interval)
+                
+                if follow_interval is not None and not first_run:
+                    # Move cursor to beginning and update only changed lines
+                    # ANSI codes: \033[H moves to home, \033[K clears to end of line
+                    print("\033[H", end="")  # Move cursor to top-left
+                    
+                    for i, line in enumerate(current_lines):
+                        if i >= len(prev_lines) or line != prev_lines[i]:
+                            # Clear line and print new content
+                            print(f"\033[K{line}")
+                        else:
+                            # Skip to next line without rewriting
+                            print()
+                    
+                    # Clear any extra lines from previous output
+                    if len(prev_lines) > len(current_lines):
+                        for _ in range(len(prev_lines) - len(current_lines)):
+                            print("\033[K")
+                else:
+                    # First run or one-time mode: print normally
+                    print("\n" + "\n".join(current_lines))
+                    if follow_interval is None:
+                        print()
+                        break
+                
+                prev_lines = current_lines
+                first_run = False
+                
+                if follow_interval is not None:
+                    # Wait for interval or keyboard input
+                    if not self._wait_for_input(follow_interval, stop_event):
+                        print("\n\n✓ Status monitoring stopped\n")
+                        break
+            
+        except KeyboardInterrupt:
+            print("\n\n✓ Status monitoring stopped\n")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error: {e}")
+            sys.exit(1)
+        finally:
+            # Restore terminal settings
+            if old_settings is not None and os.name != 'nt':
+                try:
+                    import termios
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                except (ImportError, OSError):
+                    pass
 
     def set_server_url(self, url: str):
         """Set server URL in config"""
@@ -405,7 +589,21 @@ def main():
     off_parser.add_argument("name", help="Server name")
     
     # Status command
-    subparsers.add_parser("status", help="Show status of all servers and plugs")
+    status_parser = subparsers.add_parser("status", help="Show status of all servers and plugs")
+    status_parser.add_argument("-f", "--follow", nargs="?", const=5.0, type=float, metavar="INTERVAL",
+                               help="Continuously update status (default: 5s, e.g., -f 0.5 for 500ms, -f 60 for 1min)")
+    
+    # Set command (for settings)
+    set_parser = subparsers.add_parser("set", help="Set configuration values")
+    set_sub = set_parser.add_subparsers(dest='setting', required=True)
+    
+    price_parser = set_sub.add_parser("price", help="Set electricity price per kWh")
+    price_parser.add_argument("value", type=float, help="Price per kWh (e.g., 0.2721)")
+    
+    # Get command (for settings)
+    get_parser = subparsers.add_parser("get", help="Get configuration values")
+    get_sub = get_parser.add_subparsers(dest='setting', required=True)
+    get_sub.add_parser("price", help="Get current electricity price")
     
     args = parser.parse_args()
     
@@ -487,7 +685,16 @@ def main():
             client.power_off(args.name)
         
         elif args.command == "status":
-            client.get_status()
+            follow_interval = args.follow if hasattr(args, 'follow') and args.follow else None
+            client.get_status(follow_interval=follow_interval)
+        
+        elif args.command == "set":
+            if args.setting == "price":
+                client.set_electricity_price(args.value)
+        
+        elif args.command == "get":
+            if args.setting == "price":
+                client.get_electricity_price()
     
     except KeyboardInterrupt:
         print("\n\n❌ Interrupted")

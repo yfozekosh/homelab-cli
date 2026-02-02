@@ -26,8 +26,8 @@ class Config:
                     return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load config: {e}")
-                return {"plugs": {}, "servers": {}, "state": {}}
-        return {"plugs": {}, "servers": {}, "state": {}}
+                return {"plugs": {}, "servers": {}, "state": {}, "settings": {"electricity_price": 0.0}}
+        return {"plugs": {}, "servers": {}, "state": {}, "settings": {"electricity_price": 0.0}}
 
     def save(self):
         """Save configuration to file"""
@@ -133,6 +133,17 @@ class Config:
     def get_server_state(self, name: str) -> Optional[Dict]:
         """Get server state information"""
         return self.data.get("state", {}).get(name)
+
+    def set_electricity_price(self, price: float):
+        """Set electricity price per kWh"""
+        if "settings" not in self.data:
+            self.data["settings"] = {}
+        self.data["settings"]["electricity_price"] = price
+        self.save()
+    
+    def get_electricity_price(self) -> float:
+        """Get electricity price per kWh"""
+        return self.data.get("settings", {}).get("electricity_price", 0.0)
 
     def remove_server(self, name: str) -> bool:
         """Remove a server"""

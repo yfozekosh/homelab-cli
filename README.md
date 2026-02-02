@@ -109,7 +109,20 @@ lab server remove <name>                     # Remove a server
 lab on <server>               # Power on a server
 lab off <server>              # Power off a server
 lab status                    # Show comprehensive status of all devices
+lab status -f                 # Live monitoring with in-place updates (every 5s)
+lab status -f 0.5             # Fast refresh every 500ms
+lab status -f 60              # Slow refresh every minute
 ```
+
+**Note:** Live monitoring (`-f`) uses efficient in-place updates - only changed data is redrawn, no screen clearing or flicker. Press **'q'** or **Ctrl+C** to exit.
+
+#### Settings
+```bash
+lab set price 0.2721          # Set electricity price per kWh (EUR or USD)
+lab get price                 # Get current electricity price
+```
+
+**Note:** Once a price is set, the status command will automatically calculate and display energy costs alongside power consumption metrics.
 
 ### Telegram Bot
 

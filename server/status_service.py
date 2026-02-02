@@ -52,15 +52,26 @@ class StatusService:
             today_hours = status["today_runtime"] / 60 if status["today_runtime"] else 0
             month_hours = status["month_runtime"] / 60 if status["month_runtime"] else 0
             
+            # Get electricity price
+            price = self.config.get_electricity_price()
+            
+            # Calculate costs (energy in Wh, convert to kWh for cost)
+            today_cost = (status["today_energy"] / 1000) * price if price > 0 else 0
+            month_cost = (status["month_energy"] / 1000) * price if price > 0 else 0
+            current_cost_per_hour = (status["current_power"] / 1000) * price if price > 0 else 0
+            
             return {
                 "name": name,
                 "ip": plug_data["ip"],
                 "online": True,
                 "state": "on" if status["on"] else "off",
                 "current_power": round(status["current_power"], 1),
+                "current_cost_per_hour": round(current_cost_per_hour, 4),
                 "today_energy": round(status["today_energy"], 1),
+                "today_cost": round(today_cost, 4),
                 "today_runtime": round(today_hours, 1),
                 "month_energy": round(status["month_energy"], 1),
+                "month_cost": round(month_cost, 4),
                 "month_runtime": round(month_hours, 1),
             }
         except Exception as e:
@@ -106,10 +117,20 @@ class StatusService:
             if plug:
                 try:
                     plug_status = await self.plug_service.get_full_status(plug["ip"])
+                    
+                    # Get electricity price for cost calculations
+                    price = self.config.get_electricity_price()
+                    today_cost = (plug_status["today_energy"] / 1000) * price if price > 0 else 0
+                    month_cost = (plug_status["month_energy"] / 1000) * price if price > 0 else 0
+                    current_cost_per_hour = (plug_status["current_power"] / 1000) * price if price > 0 else 0
+                    
                     result["power"] = {
                         "current": round(plug_status["current_power"], 1),
+                        "current_cost_per_hour": round(current_cost_per_hour, 4),
                         "today_energy": round(plug_status["today_energy"], 1),
+                        "today_cost": round(today_cost, 4),
                         "month_energy": round(plug_status["month_energy"], 1),
+                        "month_cost": round(month_cost, 4),
                     }
                 except Exception as e:
                     logger.warning(f"Failed to get power info for {name}: {e}")
