@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  homelab-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: homelab-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TAPO_USERNAME=${TAPO_USERNAME}
+      - TAPO_PASSWORD=${TAPO_PASSWORD}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_USER_IDS=${TELEGRAM_USER_IDS}
+      - API_KEY=${API_KEY:-homelab-secret-key}
+      - CONFIG_PATH=/app/data/config.json
+    env_file:
+      - .env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
