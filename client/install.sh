@@ -91,38 +91,69 @@ echo ""
 echo -e "${GREEN}Configuration${NC}"
 echo "-------------"
 
-# Ask for server URL
-read -p "Enter server URL (e.g., http://192.168.1.100:8000): " SERVER_URL
-if [ -z "$SERVER_URL" ]; then
-    echo -e "${YELLOW}⚠️  Server URL not provided${NC}"
-    echo "You can set it later with: lab config set-server <url>"
-else
-    "$INSTALL_DIR/lab" config set-server "$SERVER_URL" >/dev/null 2>&1 || {
-        echo -e "${YELLOW}⚠️  Failed to save server URL${NC}"
-    }
-fi
+# Check if config already exists
+CONFIG_DIR="$HOME/.config/homelab-client"
+CONFIG_FILE="$CONFIG_DIR/config.json"
 
-# Ask for API key
-read -sp "Enter API key: " API_KEY
-echo ""
-if [ -z "$API_KEY" ]; then
-    echo -e "${YELLOW}⚠️  API key not provided${NC}"
-    echo "You can set it later with: lab config set-key <key>"
-else
-    "$INSTALL_DIR/lab" config set-key "$API_KEY" >/dev/null 2>&1 || {
-        echo -e "${YELLOW}⚠️  Failed to save API key${NC}"
-    }
-fi
-
-# Test connection
-if [ -n "$SERVER_URL" ] && [ -n "$API_KEY" ]; then
+if [ -f "$CONFIG_FILE" ]; then
+    echo -e "${YELLOW}⚡ Existing configuration found${NC}"
     echo ""
-    echo "Testing connection to server..."
-    if "$INSTALL_DIR/lab" config test >/dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC} Connection successful!"
+    
+    # Try to read existing values
+    if command -v jq &> /dev/null; then
+        EXISTING_SERVER=$(jq -r '.server_url // empty' "$CONFIG_FILE" 2>/dev/null)
+        if [ -n "$EXISTING_SERVER" ]; then
+            echo "Current server: $EXISTING_SERVER"
+        fi
+    fi
+    
+    echo ""
+    read -p "Keep existing configuration? (Y/n): " KEEP_CONFIG
+    
+    if [[ ! $KEEP_CONFIG =~ ^[Nn]$ ]]; then
+        echo -e "${GREEN}✓${NC} Keeping existing configuration"
+        SKIP_CONFIG=true
     else
-        echo -e "${YELLOW}⚠️  Cannot connect to server${NC}"
-        echo "Please check your server URL and API key"
+        SKIP_CONFIG=false
+    fi
+else
+    SKIP_CONFIG=false
+fi
+
+if [ "$SKIP_CONFIG" = false ]; then
+    # Ask for server URL
+    read -p "Enter server URL (e.g., http://192.168.1.100:8000): " SERVER_URL
+    if [ -z "$SERVER_URL" ]; then
+        echo -e "${YELLOW}⚠️  Server URL not provided${NC}"
+        echo "You can set it later with: lab config set-server <url>"
+    else
+        "$INSTALL_DIR/lab" config set-server "$SERVER_URL" >/dev/null 2>&1 || {
+            echo -e "${YELLOW}⚠️  Failed to save server URL${NC}"
+        }
+    fi
+
+    # Ask for API key
+    read -sp "Enter API key: " API_KEY
+    echo ""
+    if [ -z "$API_KEY" ]; then
+        echo -e "${YELLOW}⚠️  API key not provided${NC}"
+        echo "You can set it later with: lab config set-key <key>"
+    else
+        "$INSTALL_DIR/lab" config set-key "$API_KEY" >/dev/null 2>&1 || {
+            echo -e "${YELLOW}⚠️  Failed to save API key${NC}"
+        }
+    fi
+
+    # Test connection if both provided
+    if [ -n "$SERVER_URL" ] && [ -n "$API_KEY" ]; then
+        echo ""
+        echo "Testing connection to server..."
+        if "$INSTALL_DIR/lab" config test >/dev/null 2>&1; then
+            echo -e "${GREEN}✓${NC} Connection successful!"
+        else
+            echo -e "${YELLOW}⚠️  Cannot connect to server${NC}"
+            echo "Please check your server URL and API key"
+        fi
     fi
 fi
 

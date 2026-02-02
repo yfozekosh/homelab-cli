@@ -237,6 +237,31 @@ class HomelabClient:
             print(f"❌ Error: {e}")
             sys.exit(1)
 
+    def power_off(self, name: str):
+        """Power off a server"""
+        print(f"🔴 Powering off server '{name}'...")
+        try:
+            response = requests.post(
+                f"{self.server_url}/power/off",
+                headers=self.headers,
+                json={"name": name},
+                timeout=180
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get("success"):
+                print(f"✓ Server '{name}' powered off successfully")
+                if result.get("logs"):
+                    print("\nLogs:")
+                    for log in result["logs"][-5:]:
+                        print(f"  {log}")
+            else:
+                print(f"⚠️  {result.get('message')}")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error: {e}")
+            sys.exit(1)
+
     def get_status(self):
         """Get comprehensive status of all servers and plugs"""
         try:
@@ -294,29 +319,6 @@ class HomelabClient:
             
             print("\n" + "=" * 70 + "\n")
             
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
-        """Power off a server"""
-        print(f"🔴 Powering off server '{name}'...")
-        try:
-            response = requests.post(
-                f"{self.server_url}/power/off",
-                headers=self.headers,
-                json={"name": name},
-                timeout=180
-            )
-            response.raise_for_status()
-            result = response.json()
-            
-            if result.get("success"):
-                print(f"✓ Server '{name}' powered off successfully")
-                if result.get("logs"):
-                    print("\nLogs:")
-                    for log in result["logs"][-5:]:
-                        print(f"  {log}")
-            else:
-                print(f"⚠️  {result.get('message')}")
         except requests.exceptions.RequestException as e:
             print(f"❌ Error: {e}")
             sys.exit(1)

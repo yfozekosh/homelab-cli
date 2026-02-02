@@ -63,6 +63,8 @@ lab config set-key your-api-key
 lab config test
 ```
 
+**Note:** The install script detects existing configuration during reinstalls. Just press Enter to keep your current settings, or type 'n' to reconfigure.
+
 ### 3. Telegram Bot Setup
 
 1. Create a bot with [@BotFather](https://t.me/botfather)
