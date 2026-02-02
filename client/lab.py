@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Optional
 import requests
 
+from status_display import StatusDisplay
+
 
 class HomelabClient:
     """Client for Homelab API"""
@@ -300,95 +302,6 @@ class HomelabClient:
             print(f"❌ Error: {e}")
             sys.exit(1)
 
-    def _format_status_output(self, status: dict, timestamp: str, follow_interval: Optional[float]) -> list:
-        """Format status data into lines for display"""
-        lines = []
-        summary = status["summary"]
-        
-        lines.append("=" * 70)
-        lines.append(" HOMELAB STATUS".center(70))
-        if follow_interval is not None:
-            lines.append(f" Updated: {timestamp} (refresh: {follow_interval}s)".center(70))
-        lines.append("=" * 70)
-        lines.append("")
-        lines.append("📊 Summary:")
-        lines.append(f"   Servers: {summary['servers_online']}/{summary['servers_total']} online")
-        lines.append(f"   Plugs:   {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)")
-        lines.append(f"   Power:   {summary['total_power']:.1f}W total")
-        
-        # Servers section
-        if status["servers"]:
-            lines.append("")
-            lines.append("🖥️  Servers:")
-            lines.append("-" * 70)
-            for server in status["servers"]:
-                status_icon = "🟢" if server["online"] else "🔴"
-                lines.append("")
-                lines.append(f"  {status_icon} {server['name']}")
-                lines.append(f"     Hostname: {server['hostname']}")
-                lines.append(f"     IP: {server['ip']}")
-                
-                if server["online"] and server.get("uptime"):
-                    lines.append(f"     Uptime: {server['uptime']}")
-                elif not server["online"] and server.get("downtime"):
-                    lines.append(f"     Downtime: {server['downtime']}")
-                
-                if server.get("power"):
-                    power = server["power"]
-                    power_line = f"     Power: {power['current']}W"
-                    if power.get('current_cost_per_hour', 0) > 0:
-                        power_line += f" ({power['current_cost_per_hour']}€/h)"
-                    lines.append(power_line)
-                    
-                    energy_line = f"     Today: {power['today_energy']}Wh"
-                    if power.get('today_cost', 0) > 0:
-                        energy_line += f" ({power['today_cost']}€)"
-                    lines.append(energy_line)
-                    
-                    month_line = f"     Month: {power['month_energy']}Wh"
-                    if power.get('month_cost', 0) > 0:
-                        month_line += f" ({power['month_cost']}€)"
-                    lines.append(month_line)
-        
-        # Plugs section
-        if status["plugs"]:
-            lines.append("")
-            lines.append("🔌 Plugs:")
-            lines.append("-" * 70)
-            for plug in status["plugs"]:
-                if plug.get("online"):
-                    state_icon = "⚡" if plug["state"] == "on" else "⭕"
-                    lines.append("")
-                    lines.append(f"  {state_icon} {plug['name']} ({plug['ip']})")
-                    lines.append(f"     State: {plug['state'].upper()}")
-                    
-                    current_line = f"     Current: {plug['current_power']}W"
-                    if plug.get('current_cost_per_hour', 0) > 0:
-                        current_line += f" ({plug['current_cost_per_hour']}€/h)"
-                    lines.append(current_line)
-                    
-                    today_line = f"     Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
-                    if plug.get('today_cost', 0) > 0:
-                        today_line += f" - {plug['today_cost']}€"
-                    lines.append(today_line)
-                    
-                    month_line = f"     Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
-                    if plug.get('month_cost', 0) > 0:
-                        month_line += f" - {plug['month_cost']}€"
-                    lines.append(month_line)
-                else:
-                    lines.append("")
-                    lines.append(f"  ❌ {plug['name']} ({plug['ip']}) - OFFLINE")
-        
-        lines.append("")
-        lines.append("=" * 70)
-        
-        if follow_interval is not None:
-            lines.append("")
-            lines.append("Press 'q' or Ctrl+C to exit...")
-        
-        return lines
-
     def _wait_for_input(self, interval: float, stop_event: threading.Event) -> bool:
         """Wait for interval or keyboard input
         
@@ -434,6 +347,7 @@ class HomelabClient:
         """
         prev_lines = []
         stop_event = threading.Event()
+        display = StatusDisplay()
         
         # Set terminal to raw mode for non-blocking input (Unix only)
         old_settings = None
@@ -458,7 +372,7 @@ class HomelabClient:
                 status = response.json()
                 
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                current_lines = self._format_status_output(status, timestamp, follow_interval)
+                current_lines = display.format_status_output(status, timestamp, follow_interval)
                 
                 if follow_interval is not None and not first_run:
                     # Move cursor to beginning and update only changed lines

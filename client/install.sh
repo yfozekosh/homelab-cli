@@ -75,6 +75,16 @@ cp "$SOURCE_FILE" "$INSTALL_DIR/lab"
 chmod +x "$INSTALL_DIR/lab"
 echo -e "${GREEN}✓${NC} Client script installed"
 
+# Copy status display module if it exists
+if [ -f "../client/status_display.py" ]; then
+    cp "../client/status_display.py" "$INSTALL_DIR/status_display.py"
+elif [ -f "./status_display.py" ]; then
+    cp "./status_display.py" "$INSTALL_DIR/status_display.py"
+fi
+if [ -f "$INSTALL_DIR/status_display.py" ]; then
+    echo -e "${GREEN}✓${NC} Status display module installed"
+fi
+
 # Install dependencies
 echo "Installing dependencies..."
 pip3 install --user requests >/dev/null 2>&1 || {
