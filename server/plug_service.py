@@ -53,3 +53,45 @@ class PlugService:
             "on": info.device_on,
             "signal_level": info.signal_level,
         }
+
+    async def get_energy_usage(self, ip: str) -> dict:
+        """Get energy usage statistics"""
+        try:
+            device = await self.get_client(ip)
+            
+            # Current power
+            current = await device.get_current_power()
+            
+            # Energy usage
+            energy = await device.get_energy_usage()
+            
+            return {
+                "current_power": current.current_power,  # Watts
+                "today_runtime": energy.today_runtime,   # Minutes
+                "today_energy": energy.today_energy,     # Wh
+                "month_runtime": energy.month_runtime,   # Minutes
+                "month_energy": energy.month_energy,     # Wh
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get energy usage for {ip}: {e}")
+            return {
+                "current_power": 0,
+                "today_runtime": 0,
+                "today_energy": 0,
+                "month_runtime": 0,
+                "month_energy": 0,
+            }
+
+    async def get_full_status(self, ip: str) -> dict:
+        """Get complete status including energy data"""
+        device = await self.get_client(ip)
+        info = await device.get_device_info()
+        
+        # Get energy data
+        energy_data = await self.get_energy_usage(ip)
+        
+        return {
+            "on": info.device_on,
+            "signal_level": info.signal_level,
+            **energy_data
+        }

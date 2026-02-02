@@ -237,7 +237,66 @@ class HomelabClient:
             print(f"❌ Error: {e}")
             sys.exit(1)
 
-    def power_off(self, name: str):
+    def get_status(self):
+        """Get comprehensive status of all servers and plugs"""
+        try:
+            response = requests.get(
+                f"{self.server_url}/status",
+                headers=self.headers,
+                timeout=30
+            )
+            response.raise_for_status()
+            status = response.json()
+            
+            # Print summary
+            summary = status["summary"]
+            print("\n" + "=" * 70)
+            print(" HOMELAB STATUS".center(70))
+            print("=" * 70)
+            print(f"\n📊 Summary:")
+            print(f"   Servers: {summary['servers_online']}/{summary['servers_total']} online")
+            print(f"   Plugs:   {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)")
+            print(f"   Power:   {summary['total_power']:.1f}W total")
+            
+            # Print servers
+            if status["servers"]:
+                print(f"\n🖥️  Servers:")
+                print("-" * 70)
+                for server in status["servers"]:
+                    status_icon = "🟢" if server["online"] else "🔴"
+                    print(f"\n  {status_icon} {server['name']}")
+                    print(f"     Hostname: {server['hostname']}")
+                    print(f"     IP: {server['ip']}")
+                    
+                    if server["online"] and server.get("uptime"):
+                        print(f"     Uptime: {server['uptime']}")
+                    elif not server["online"] and server.get("downtime"):
+                        print(f"     Downtime: {server['downtime']}")
+                    
+                    if server.get("power"):
+                        power = server["power"]
+                        print(f"     Power: {power['current']}W (today: {power['today_energy']}Wh, month: {power['month_energy']}Wh)")
+            
+            # Print plugs
+            if status["plugs"]:
+                print(f"\n🔌 Plugs:")
+                print("-" * 70)
+                for plug in status["plugs"]:
+                    if plug.get("online"):
+                        state_icon = "⚡" if plug["state"] == "on" else "⭕"
+                        print(f"\n  {state_icon} {plug['name']} ({plug['ip']})")
+                        print(f"     State: {plug['state'].upper()}")
+                        print(f"     Current: {plug['current_power']}W")
+                        print(f"     Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)")
+                        print(f"     Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)")
+                    else:
+                        print(f"\n  ❌ {plug['name']} ({plug['ip']}) - OFFLINE")
+            
+            print("\n" + "=" * 70 + "\n")
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error: {e}")
+            sys.exit(1)
         """Power off a server"""
         print(f"🔴 Powering off server '{name}'...")
         try:
@@ -343,6 +402,9 @@ def main():
     off_parser = subparsers.add_parser("off", help="Power off a server")
     off_parser.add_argument("name", help="Server name")
     
+    # Status command
+    subparsers.add_parser("status", help="Show status of all servers and plugs")
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -421,6 +483,9 @@ def main():
         
         elif args.command == "off":
             client.power_off(args.name)
+        
+        elif args.command == "status":
+            client.get_status()
     
     except KeyboardInterrupt:
         print("\n\n❌ Interrupted")

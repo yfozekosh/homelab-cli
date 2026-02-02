@@ -15,6 +15,7 @@ from .config import Config
 from .plug_service import PlugService
 from .server_service import ServerService
 from .power_service import PowerControlService
+from .status_service import StatusService
 
 # Setup logging
 logging.basicConfig(
@@ -80,12 +81,13 @@ config: Config = None
 plug_service: PlugService = None
 server_service: ServerService = None
 power_service: PowerControlService = None
+status_service: StatusService = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan"""
-    global config, plug_service, server_service, power_service
+    global config, plug_service, server_service, power_service, status_service
     
     logger.info("Starting Homelab Server...")
     
@@ -95,6 +97,7 @@ async def lifespan(app: FastAPI):
     plug_service = PlugService()
     server_service = ServerService()
     power_service = PowerControlService(plug_service, server_service)
+    status_service = StatusService(config, plug_service, server_service)
     
     logger.info("Server initialized successfully")
     
@@ -115,6 +118,17 @@ app = FastAPI(
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "version": "2.0.0"}
+
+
+@app.get("/status", dependencies=[Depends(verify_api_key)])
+async def get_status():
+    """Get comprehensive status of all servers and plugs"""
+    try:
+        status = await status_service.get_all_status()
+        return status
+    except Exception as e:
+        logger.error(f"Failed to get status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/plugs", dependencies=[Depends(verify_api_key)])

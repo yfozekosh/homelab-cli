@@ -106,6 +106,7 @@ lab server remove <name>                     # Remove a server
 ```bash
 lab on <server>               # Power on a server
 lab off <server>              # Power off a server
+lab status                    # Show comprehensive status of all devices
 ```
 
 ### Telegram Bot

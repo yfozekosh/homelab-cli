@@ -5,6 +5,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class Config:
                     return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load config: {e}")
-                return {"plugs": {}, "servers": {}}
-        return {"plugs": {}, "servers": {}}
+                return {"plugs": {}, "servers": {}, "state": {}}
+        return {"plugs": {}, "servers": {}, "state": {}}
 
     def save(self):
         """Save configuration to file"""
@@ -104,6 +105,34 @@ class Config:
         self.data["plugs"][name]["ip"] = ip
         self.save()
         return True
+
+    def update_server_state(self, name: str, online: bool):
+        """Update server online state and track uptime"""
+        if "state" not in self.data:
+            self.data["state"] = {}
+        
+        if name not in self.data["state"]:
+            self.data["state"][name] = {
+                "online": online,
+                "last_change": datetime.utcnow().isoformat(),
+                "uptime_start": datetime.utcnow().isoformat() if online else None
+            }
+        else:
+            current_state = self.data["state"][name].get("online", False)
+            if current_state != online:
+                # State changed
+                self.data["state"][name]["online"] = online
+                self.data["state"][name]["last_change"] = datetime.utcnow().isoformat()
+                if online:
+                    self.data["state"][name]["uptime_start"] = datetime.utcnow().isoformat()
+                else:
+                    self.data["state"][name]["uptime_start"] = None
+        
+        self.save()
+
+    def get_server_state(self, name: str) -> Optional[Dict]:
+        """Get server state information"""
+        return self.data.get("state", {}).get(name)
 
     def remove_server(self, name: str) -> bool:
         """Remove a server"""
