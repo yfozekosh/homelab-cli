@@ -1,7 +1,7 @@
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 python-telegram-bot>=20.7
-tapo==0.4.2
+tapo>=0.4.2
 wakeonlan>=3.0.0
 pydantic>=2.5.0
 python-multipart>=0.0.6
