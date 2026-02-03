@@ -1,7 +1,8 @@
 """Power control operations"""
 
 import sys
-import time
+import json
+import requests
 from .api_client import APIClient
 
 
@@ -11,83 +12,102 @@ class PowerManager:
     def __init__(self, api_client: APIClient):
         self.api = api_client
 
-    def _show_progress(self, name: str, action: str):
-        """Show progress animation while operation completes"""
-        import threading
-
-        stop_event = threading.Event()
-        spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
-        def spinner():
-            idx = 0
-            while not stop_event.is_set():
-                print(
-                    f"\r{spinner_chars[idx]} {action} server '{name}'... ",
-                    end="",
-                    flush=True,
-                )
-                idx = (idx + 1) % len(spinner_chars)
-                time.sleep(0.1)
-
-        spinner_thread = threading.Thread(target=spinner, daemon=True)
-        spinner_thread.start()
-        return stop_event
-
-    def power_on(self, name: str):
-        """Power on a server"""
-        print(f"⚡ Powering on server '{name}'...")
-        print()
-
-        stop_event = self._show_progress(name, "Powering on")
+    def _stream_power_operation(self, endpoint: str, data: dict, action_verb: str):
+        """Stream power operation with real-time logs"""
+        url = f"{self.api.server_url}{endpoint}"
 
         try:
-            result = self.api._post("/power/on", {"name": name}, timeout=180)
-        finally:
-            stop_event.set()
-            time.sleep(0.15)  # Let spinner thread finish
-            print("\r" + " " * 80 + "\r", end="")  # Clear spinner line
+            response = requests.post(
+                url,
+                headers=self.api.headers,
+                json=data,
+                stream=True,
+                timeout=180,
+            )
+            response.raise_for_status()
 
-        if result.get("success"):
-            print(f"✓ Server '{name}' powered on successfully\n")
-            if result.get("logs"):
-                print("Progress Log:")
-                print("─" * 60)
-                for log in result["logs"]:
-                    print(f"  {log}")
-                print()
+            print()  # Empty line before logs
+
+            final_result = None
+            current_event = None
+
+            # Process SSE stream
+            for line in response.iter_lines():
+                if not line:
+                    continue
+
+                line = line.decode("utf-8")
+
+                # Skip keepalive comments
+                if line.startswith(":"):
+                    continue
+
+                # Parse SSE format
+                if line.startswith("event:"):
+                    current_event = line.split(":", 1)[1].strip()
+                elif line.startswith("data:"):
+                    data_str = line.split(":", 1)[1].strip()
+
+                    try:
+                        # Try to parse as JSON
+                        if data_str.startswith("{"):
+                            data_obj = json.loads(data_str)
+
+                            # Check if it's a log message
+                            if isinstance(data_obj, dict) and "message" in data_obj:
+                                # If there's both 'success' and 'message', it's the final result
+                                if "success" in data_obj:
+                                    final_result = data_obj
+                                else:
+                                    # It's a log message
+                                    print(f"  {data_obj['message']}")
+                                    sys.stdout.flush()
+                            else:
+                                # It's the final result
+                                final_result = data_obj
+                        else:
+                            # Plain text log
+                            print(f"  {data_str}")
+                            sys.stdout.flush()
+
+                    except json.JSONDecodeError:
+                        # Plain text
+                        print(f"  {data_str}")
+                        sys.stdout.flush()
+
+            print()  # Empty line after logs
+
+            return final_result
+
+        except requests.exceptions.RequestException as e:
+            print(f"\n❌ Error: {e}")
+            sys.exit(1)
+
+    def power_on(self, name: str):
+        """Power on a server with real-time progress"""
+        print(f"⚡ Powering on server '{name}'...")
+
+        result = self._stream_power_operation(
+            "/power/on", {"name": name}, "Powering on"
+        )
+
+        if result and result.get("success"):
+            print(f"✓ Server '{name}' powered on successfully")
         else:
-            print(f"❌ Failed: {result.get('message')}")
-            if result.get("logs"):
-                print("\nLogs:")
-                for log in result["logs"]:
-                    print(f"  {log}")
+            message = result.get("message") if result else "Unknown error"
+            print(f"❌ Failed: {message}")
             sys.exit(1)
 
     def power_off(self, name: str):
-        """Power off a server"""
+        """Power off a server with real-time progress"""
         print(f"🔴 Powering off server '{name}'...")
-        print()
 
-        stop_event = self._show_progress(name, "Powering off")
+        result = self._stream_power_operation(
+            "/power/off", {"name": name}, "Powering off"
+        )
 
-        try:
-            result = self.api._post("/power/off", {"name": name}, timeout=180)
-        finally:
-            stop_event.set()
-            time.sleep(0.15)  # Let spinner thread finish
-            print("\r" + " " * 80 + "\r", end="")  # Clear spinner line
-
-        if result.get("success"):
-            print(f"✓ Server '{name}' powered off successfully\n")
-            if result.get("logs"):
-                print("Progress Log:")
-                print("─" * 60)
-                for log in result["logs"]:
-                    print(f"  {log}")
-                print()
+        if result and result.get("success"):
+            print(f"✓ Server '{name}' powered off successfully")
         else:
-            print(f"⚠️  {result.get('message')}")
-            if result.get("logs"):
-                print("\nLogs:")
-                for log in result["logs"]:
-                    print(f"  {log}")
+            message = result.get("message") if result else "Unknown error"
+            print(f"⚠️  {message}")

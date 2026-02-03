@@ -21,25 +21,31 @@ class TestPowerOperationsDetailed:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_on_with_logs(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power on displays logs"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response with logs
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": True,
-            "message": "Server powered on",
-            "logs": [
-                "Turning on plug...",
-                "Plug on",
-                "Sending WOL packet...",
-                "WOL sent",
-                "Server is online",
-            ],
-        }
+        mock_response.iter_lines.return_value = [
+            b"event: log",
+            b'data: {"message": "Turning on plug..."}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Plug on"}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Sending WOL packet..."}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Server is online"}',
+            b"",
+            b'data: {"success": true, "message": "Server powered on"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(
@@ -52,27 +58,32 @@ class TestPowerOperationsDetailed:
         # Verify logs are printed
         print_calls = [str(call) for call in mock_print.call_args_list]
         combined = " ".join(print_calls)
-        assert "Logs" in combined or "online" in combined.lower()
+        assert "Turning on plug" in combined or "online" in combined.lower()
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_off_with_logs(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power off displays logs"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": True,
-            "message": "Server powered off",
-            "logs": [
-                "Sending shutdown command...",
-                "Server shut down",
-                "Turning off plug...",
-            ],
-        }
+        mock_response.iter_lines.return_value = [
+            b"event: log",
+            b'data: {"message": "Sending shutdown command..."}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Server shut down"}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Turning off plug..."}',
+            b"",
+            b'data: {"success": true, "message": "Server powered off"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(
@@ -89,7 +100,7 @@ class TestPowerOperationsDetailed:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_off_warning_message(
         self, mock_print, mock_post, mock_exists, mock_home
@@ -97,12 +108,13 @@ class TestPowerOperationsDetailed:
         """Test power off displays warning messages"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response with warning
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": False,
-            "message": "Server already offline",
-        }
+        mock_response.iter_lines.return_value = [
+            b'data: {"success": false, "message": "Server already offline"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(

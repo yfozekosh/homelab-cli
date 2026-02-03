@@ -21,19 +21,25 @@ class TestPowerOperations:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_on_success(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power on successfully"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": True,
-            "message": "Powered on",
-            "logs": ["Log 1", "Log 2"],
-        }
+        mock_response.iter_lines.return_value = [
+            b"event: log",
+            b'data: {"message": "Turning on plug..."}',
+            b"",
+            b"event: log",
+            b'data: {"message": "Server is online!"}',
+            b"",
+            b'data: {"success": true, "message": "Powered on"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(
@@ -50,18 +56,22 @@ class TestPowerOperations:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_on_failure(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power on failure"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response with failure
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "success": False,
-            "message": "Server not configured",
-        }
+        mock_response.iter_lines.return_value = [
+            b"event: log",
+            b'data: {"message": "Turning on plug..."}',
+            b"",
+            b'data: {"success": false, "message": "Server not configured"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(
@@ -74,15 +84,22 @@ class TestPowerOperations:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     @patch("builtins.print")
     def test_power_off_success(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power off successfully"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
+
+        # Mock SSE streaming response
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"success": True, "message": "Powered off"}
+        mock_response.iter_lines.return_value = [
+            b"event: log",
+            b'data: {"message": "Sending shutdown..."}',
+            b"",
+            b'data: {"success": true, "message": "Powered off"}',
+        ]
         mock_post.return_value = mock_response
 
         with patch.dict(
