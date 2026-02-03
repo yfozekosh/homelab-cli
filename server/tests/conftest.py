@@ -47,12 +47,18 @@ def server_process(test_config_path):
     env["CONFIG_PATH"] = str(test_config_path)
     env["API_KEY"] = "test-api-key"
     env["SSH_USER"] = "testuser"
+    env["TAPO_USERNAME"] = "test@example.com"
+    env["TAPO_PASSWORD"] = "test-password"
     env["PYTHONUNBUFFERED"] = "1"
+    env["COVERAGE_PROCESS_START"] = str(Path(__file__).parent.parent.parent / ".coveragerc")
     
     # Run from parent directory so server module can be imported
     root_dir = Path(__file__).parent.parent.parent
+    
+    # Start server with coverage
     process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "server.main:app", "--host", "127.0.0.1", "--port", "18000", "--log-level", "error"],
+        [sys.executable, "-m", "coverage", "run", "--parallel-mode", "-m", "uvicorn", 
+         "server.main:app", "--host", "127.0.0.1", "--port", "18000", "--log-level", "error"],
         cwd=root_dir,
         env=env,
         stdout=subprocess.PIPE,

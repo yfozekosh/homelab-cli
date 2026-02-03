@@ -4,6 +4,7 @@ Plug Management Service
 
 import os
 import logging
+import asyncio
 from typing import Optional
 from tapo import ApiClient
 
@@ -22,11 +23,18 @@ class PlugService:
                 "TAPO_USERNAME and TAPO_PASSWORD environment variables must be set"
             )
 
-    async def get_client(self, ip: str):
+    async def get_client(self, ip: str, timeout: float = 1.5):
         """Get Tapo client for a plug"""
-        client = ApiClient(self.username, self.password)
-        device = await client.p110(ip)
-        return device
+        try:
+            client = ApiClient(self.username, self.password)
+            device = await asyncio.wait_for(client.p110(ip), timeout=timeout)
+            return device
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout connecting to plug at {ip}")
+            raise
+        except Exception as e:
+            logger.warning(f"Failed to connect to plug at {ip}: {e}")
+            raise
 
     async def turn_on(self, ip: str):
         """Turn on a plug"""
@@ -50,23 +58,27 @@ class PlugService:
 
     async def get_status(self, ip: str) -> dict:
         """Get plug status"""
-        device = await self.get_client(ip)
-        info = await device.get_device_info()
-        return {
-            "on": info.device_on,
-            "signal_level": info.signal_level,
-        }
+        try:
+            device = await self.get_client(ip, timeout=1.5)
+            info = await asyncio.wait_for(device.get_device_info(), timeout=1.5)
+            return {
+                "on": info.device_on,
+                "signal_level": info.signal_level,
+            }
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Failed to get status for {ip}: {e}")
+            return {"on": False, "signal_level": 0}
 
     async def get_energy_usage(self, ip: str) -> dict:
         """Get energy usage statistics"""
         try:
-            device = await self.get_client(ip)
+            device = await self.get_client(ip, timeout=1.5)
 
             # Current power
-            current = await device.get_current_power()
+            current = await asyncio.wait_for(device.get_current_power(), timeout=1.5)
 
             # Energy usage
-            energy = await device.get_energy_usage()
+            energy = await asyncio.wait_for(device.get_energy_usage(), timeout=1.5)
 
             return {
                 "current_power": current.current_power,  # Watts
@@ -87,10 +99,23 @@ class PlugService:
 
     async def get_full_status(self, ip: str) -> dict:
         """Get complete status including energy data"""
-        device = await self.get_client(ip)
-        info = await device.get_device_info()
+        try:
+            device = await self.get_client(ip, timeout=1.5)
+            info = await asyncio.wait_for(device.get_device_info(), timeout=1.5)
 
-        # Get energy data
-        energy_data = await self.get_energy_usage(ip)
+            # Get energy data
+            energy_data = await self.get_energy_usage(ip)
 
-        return {"on": info.device_on, "signal_level": info.signal_level, **energy_data}
+            return {"on": info.device_on, "signal_level": info.signal_level, **energy_data}
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Failed to get full status for {ip}: {e}")
+            # Return offline status
+            return {
+                "on": False,
+                "signal_level": 0,
+                "current_power": 0,
+                "today_runtime": 0,
+                "today_energy": 0,
+                "month_runtime": 0,
+                "month_energy": 0,
+            }
