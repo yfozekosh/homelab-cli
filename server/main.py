@@ -4,12 +4,14 @@ FastAPI Server for Homelab Management
 
 import os
 import logging
+import asyncio
 from pathlib import Path
 from typing import Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Security, status
 from fastapi.security import APIKeyHeader
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .config import Config
@@ -282,7 +284,7 @@ async def get_server(name: str):
 
 @app.post("/power/on", dependencies=[Depends(verify_api_key)])
 async def power_on_server(action: PowerAction):
-    """Power on a server"""
+    """Power on a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{action.name}' not found")
@@ -304,17 +306,60 @@ async def power_on_server(action: PowerAction):
             status_code=404, detail=f"Plug '{server['plug']}' not found"
         )
 
-    try:
-        result = await power_service.power_on(server, plug["ip"])
-        return result
-    except Exception as e:
-        logger.error(f"Failed to power on server: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    async def event_generator():
+        """Generate SSE events for real-time progress"""
+        log_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
+
+        def progress_callback(msg: str):
+            # Schedule task in the event loop from sync callback
+            asyncio.run_coroutine_threadsafe(log_queue.put(msg), loop)
+
+        # Start power on operation in background
+        async def run_power_on():
+            try:
+                result = await power_service.power_on(
+                    server, plug["ip"], progress_callback
+                )
+                await log_queue.put({"type": "complete", "result": result})
+            except Exception as e:
+                logger.error(f"Failed to power on server: {e}")
+                await log_queue.put({"type": "error", "message": str(e)})
+
+        task = asyncio.create_task(run_power_on())
+
+        # Stream logs as they arrive
+        while True:
+            try:
+                msg = await asyncio.wait_for(log_queue.get(), timeout=0.5)
+
+                if isinstance(msg, dict):
+                    if msg.get("type") == "complete":
+                        import json
+
+                        yield f"data: {json.dumps(msg['result'])}\n\n"
+                        break
+                    elif msg.get("type") == "error":
+                        yield f"event: error\ndata: {msg['message']}\n\n"
+                        break
+                else:
+                    # Regular log message
+                    import json
+
+                    yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
+
+            except asyncio.TimeoutError:
+                # Keep connection alive
+                yield f": keepalive\n\n"
+
+        await task
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/power/off", dependencies=[Depends(verify_api_key)])
 async def power_off_server(action: PowerAction):
-    """Power off a server"""
+    """Power off a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{action.name}' not found")
@@ -330,12 +375,55 @@ async def power_off_server(action: PowerAction):
             status_code=404, detail=f"Plug '{server['plug']}' not found"
         )
 
-    try:
-        result = await power_service.power_off(server, plug["ip"])
-        return result
-    except Exception as e:
-        logger.error(f"Failed to power off server: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    async def event_generator():
+        """Generate SSE events for real-time progress"""
+        log_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
+
+        def progress_callback(msg: str):
+            # Schedule task in the event loop from sync callback
+            asyncio.run_coroutine_threadsafe(log_queue.put(msg), loop)
+
+        # Start power off operation in background
+        async def run_power_off():
+            try:
+                result = await power_service.power_off(
+                    server, plug["ip"], progress_callback
+                )
+                await log_queue.put({"type": "complete", "result": result})
+            except Exception as e:
+                logger.error(f"Failed to power off server: {e}")
+                await log_queue.put({"type": "error", "message": str(e)})
+
+        task = asyncio.create_task(run_power_off())
+
+        # Stream logs as they arrive
+        while True:
+            try:
+                msg = await asyncio.wait_for(log_queue.get(), timeout=0.5)
+
+                if isinstance(msg, dict):
+                    if msg.get("type") == "complete":
+                        import json
+
+                        yield f"data: {json.dumps(msg['result'])}\n\n"
+                        break
+                    elif msg.get("type") == "error":
+                        yield f"event: error\ndata: {msg['message']}\n\n"
+                        break
+                else:
+                    # Regular log message
+                    import json
+
+                    yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
+
+            except asyncio.TimeoutError:
+                # Keep connection alive
+                yield f": keepalive\n\n"
+
+        await task
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/settings/electricity-price", dependencies=[Depends(verify_api_key)])

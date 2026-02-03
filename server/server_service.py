@@ -36,7 +36,6 @@ class ServerService:
         try:
             # Use -o BatchMode=yes to avoid password prompts
             # Use -o StrictHostKeyChecking=no to avoid interactive prompts
-            # Run in background with nohup to avoid hanging
             result = subprocess.run(
                 [
                     "ssh",
@@ -53,13 +52,29 @@ class ServerService:
                 capture_output=True,
                 text=True,
             )
-            logger.info(f"SSH shutdown result: {result.returncode}")
+            logger.info(f"SSH shutdown result: return code {result.returncode}")
+
+            # Log output for debugging
+            if result.stdout:
+                logger.info(f"SSH stdout: {result.stdout}")
+            if result.stderr:
+                logger.info(f"SSH stderr: {result.stderr}")
+
+            # Exit codes: 0 = success, 255 = connection closed (expected during shutdown)
             if result.returncode != 0 and result.returncode != 255:
-                # 255 is expected when connection closes due to shutdown
-                logger.warning(f"SSH stderr: {result.stderr}")
+                error_msg = f"SSH command failed with exit code {result.returncode}"
+                if result.stderr:
+                    error_msg += f": {result.stderr}"
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
         except subprocess.TimeoutExpired:
-            # Timeout is expected as server shuts down
+            # Timeout is expected as server shuts down mid-command
             logger.info("SSH command timed out (expected during shutdown)")
+        except FileNotFoundError:
+            error_msg = "SSH command not found - is OpenSSH installed?"
+            logger.error(error_msg)
+            raise Exception(error_msg)
         except Exception as e:
             logger.error(f"Failed to send shutdown: {e}")
             raise
