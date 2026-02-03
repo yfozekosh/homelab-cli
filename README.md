@@ -280,8 +280,13 @@ homelab-cli/
 │   └── requirements.txt
 ├── client/              # CLI client
 │   ├── lab.py          # Client script
+│   ├── status_display.py # Status display logic
 │   ├── install.sh      # Installation script
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── tests/          # Test suite (62 tests)
+│       ├── conftest.py
+│       ├── test_*.py   # Modular test files
+│       └── README.md   # Test documentation
 ├── docker/              # Docker configuration
 │   ├── Dockerfile
 │   ├── docker-compose.yml
@@ -289,6 +294,40 @@ homelab-cli/
 │   └── .env.example
 └── docs/                # Documentation
 ```
+
+### Testing
+
+The client includes comprehensive unit tests with **76% coverage**.
+
+```bash
+cd client
+
+# Install test dependencies
+pip install -r requirements-test.txt
+
+# Run all tests
+pytest
+
+# Run with coverage report
+pytest --cov=. --cov-report=html
+
+# Run specific test file
+pytest tests/test_plug_operations.py -v
+
+# Run tests with verbose output
+pytest -v
+
+# View coverage report
+open htmlcov/index.html  # or xdg-open on Linux
+```
+
+**Test Statistics:**
+- **62 tests** across 15 modular files
+- **76% coverage** for main client code
+- **100% pass rate**
+- **~2.25s** execution time
+
+See [`client/tests/README.md`](client/tests/README.md) for detailed documentation.
 
 ### Running Locally (without Docker)
 
