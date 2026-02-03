@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r server/requirements.txt
-          pip install pytest pytest-cov pytest-asyncio pytest-mock
+          pip install pytest pytest-cov pytest-asyncio pytest-mock requests
 
       - name: Run tests with coverage
         env:
