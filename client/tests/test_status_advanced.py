@@ -25,14 +25,20 @@ class TestGetStatusAdvanced:
     @patch("homelab_client.status_manager.StatusDisplay")
     @patch("builtins.print")
     @patch("homelab_client.status_manager.os.name", "posix")
+    @patch("homelab_client.status_manager.os.get_terminal_size")
+    @patch("select.select")
     @patch("termios.tcgetattr")
     @patch("termios.tcsetattr")
     @patch("tty.setcbreak")
+    @patch("time.sleep")
     def test_get_status_with_follow_keyboard_interrupt(
         self,
+        mock_sleep,
         mock_setcbreak,
         mock_tcsetattr,
         mock_tcgetattr,
+        mock_select,
+        mock_get_terminal_size,
         mock_print,
         mock_display_class,
         mock_get,
@@ -43,6 +49,8 @@ class TestGetStatusAdvanced:
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_tcgetattr.return_value = "settings"
+        mock_get_terminal_size.return_value = Mock(columns=80, lines=24)
+        mock_select.return_value = ([], [], [])  # No input available
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -64,8 +72,15 @@ class TestGetStatusAdvanced:
         mock_display.format_status_output.return_value = ["Test output"]
         mock_display_class.return_value = mock_display
 
-        # Simulate KeyboardInterrupt on first call
-        mock_get.side_effect = KeyboardInterrupt()
+        # Simulate KeyboardInterrupt after allowing first fetch
+        call_count = [0]
+
+        def sleep_side_effect(duration):
+            call_count[0] += 1
+            if call_count[0] > 5:  # After a few calls, raise interrupt
+                raise KeyboardInterrupt()
+
+        mock_sleep.side_effect = sleep_side_effect
 
         with patch.dict(
             os.environ,

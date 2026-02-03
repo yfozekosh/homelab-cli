@@ -326,11 +326,7 @@ class StatusDisplay:
 
         if follow_interval is not None:
             lines.append("")
-            lines.append(self._c("GRAY", "Press 'q' or Ctrl+C to exit...", use_color))
-
-        # Truncate if we still have too many lines
-        if len(lines) > height - 1:
-            lines = lines[: height - 2]
-            lines.append("  ... (terminal too small, resize for full view)")
+            footer_text = "Use arrow keys or j/k to scroll, 'q' to exit"
+            lines.append(self._c("GRAY", footer_text, use_color))
 
         return lines

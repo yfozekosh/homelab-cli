@@ -44,7 +44,7 @@ class TestWaitForInput:
             result = client._wait_for_input(0.1, stop_event)
 
         # Should return False when 'q' is pressed
-        assert result is False
+        assert result == (False, False)
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
@@ -73,7 +73,7 @@ class TestWaitForInput:
             result = client._wait_for_input(0.1, stop_event)
 
         # Should return True when timeout is reached
-        assert result is True
+        assert result == (True, False)
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
@@ -100,7 +100,7 @@ class TestWaitForInput:
             result = client._wait_for_input(5.0, stop_event)
 
         # Should return False when stop_event is set
-        assert result is False
+        assert result == (False, False)
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
