@@ -154,6 +154,8 @@ class TestGetStatusAdvanced:
     @patch("homelab_client.status_manager.requests.get")
     def test_get_status_request_error(self, mock_get, mock_exists, mock_home):
         """Test get_status handles request errors"""
+        from homelab_client import APIError
+
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
@@ -163,6 +165,5 @@ class TestGetStatusAdvanced:
             {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
         ):
             client = HomelabClient()
-            with pytest.raises(SystemExit) as exc_info:
+            with pytest.raises(APIError):
                 client.get_status()
-            assert exc_info.value.code == 1

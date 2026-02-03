@@ -18,9 +18,9 @@ def test_set_price_zero(api_client):
     assert response.status_code in [200, 400]
 
 def test_set_price_very_high(api_client):
-    """Test setting very high price"""
+    """Test setting very high price is rejected by validation"""
     response = api_client.post("/settings/electricity-price", json={"price": 999.99})
-    assert response.status_code == 200
+    assert response.status_code == 422  # Validation error
 
 def test_set_price_with_many_decimals(api_client):
     """Test setting price with many decimal places"""

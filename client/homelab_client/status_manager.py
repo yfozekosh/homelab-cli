@@ -9,6 +9,8 @@ from typing import Optional
 import requests
 from status_display import StatusDisplay
 from .api_client import APIClient
+from .exceptions import APIError, ConnectionError
+from .constants import STATUS_FETCH_TIMEOUT, INITIAL_DATA_TIMEOUT
 
 
 class StatusManager:
@@ -113,7 +115,7 @@ class StatusManager:
                 response = requests.get(
                     f"{self.api.server_url}/status",
                     headers=self.api.headers,
-                    timeout=30,
+                    timeout=STATUS_FETCH_TIMEOUT,
                 )
                 response.raise_for_status()
                 status = response.json()
@@ -175,14 +177,15 @@ class StatusManager:
                     response = requests.get(
                         f"{self.api.server_url}/status",
                         headers=self.api.headers,
-                        timeout=30,
+                        timeout=STATUS_FETCH_TIMEOUT,
                     )
                     response.raise_for_status()
                     with self.status_lock:
                         self.current_status = response.json()
+                except requests.exceptions.ConnectionError as e:
+                    raise ConnectionError(f"Cannot connect to server: {e}")
                 except requests.exceptions.RequestException as e:
-                    print(f"❌ Error: {e}")
-                    sys.exit(1)
+                    raise APIError(f"Failed to fetch status: {e}")
             else:
                 # Follow mode: start background fetcher immediately
                 fetch_thread = threading.Thread(
@@ -195,7 +198,7 @@ class StatusManager:
                 # Wait for first data with loading animation
                 loading_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
                 loading_idx = 0
-                max_wait = 30  # Maximum 30 seconds for first fetch
+                max_wait = INITIAL_DATA_TIMEOUT
                 wait_start = time.time()
 
                 while self.current_status is None:
@@ -206,8 +209,7 @@ class StatusManager:
                     # Check timeout
                     if time.time() - wait_start > max_wait:
                         print("\033[?25h")  # Show cursor
-                        print(f"\n❌ Error: Timeout waiting for initial data")
-                        sys.exit(1)
+                        raise APIError("Timeout waiting for initial data")
 
                     # Animate loading
                     print(
@@ -322,10 +324,12 @@ class StatusManager:
         except KeyboardInterrupt:
             print("\033[?25h")  # Show cursor
             print("\n\n✓ Status monitoring stopped\n")
+        except requests.exceptions.ConnectionError as e:
+            print("\033[?25h")  # Show cursor
+            raise ConnectionError(f"Cannot connect to server: {e}")
         except requests.exceptions.RequestException as e:
             print("\033[?25h")  # Show cursor
-            print(f"❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"Failed to fetch status: {e}")
         finally:
             # Show cursor
             if follow_interval is not None:

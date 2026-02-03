@@ -13,7 +13,7 @@ from pathlib import Path
 import requests
 
 # Import the client
-from homelab_client import HomelabClient
+from homelab_client import HomelabClient, ConfigurationError
 
 
 class TestHomelabClientInit:
@@ -72,10 +72,10 @@ class TestHomelabClientInit:
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             HomelabClient()
 
-        assert exc_info.value.code == 1
+        assert "Server URL not configured" in str(exc_info.value)
 
     @patch("homelab_client.config.Path.home")
     @patch(
@@ -89,7 +89,7 @@ class TestHomelabClientInit:
         mock_exists.return_value = True
         mock_home.return_value = Path("/home/test")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             HomelabClient()
 
-        assert exc_info.value.code == 1
+        assert "API key not configured" in str(exc_info.value)

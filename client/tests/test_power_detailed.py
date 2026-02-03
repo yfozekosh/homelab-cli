@@ -130,9 +130,11 @@ class TestPowerOperationsDetailed:
 
     @patch("homelab_client.config.Path.home")
     @patch("homelab_client.config.Path.exists")
-    @patch("homelab_client.api_client.requests.post")
+    @patch("homelab_client.power_manager.requests.post")
     def test_power_operations_network_error(self, mock_post, mock_exists, mock_home):
         """Test power operations handle network errors"""
+        from homelab_client import ConnectionError
+
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_post.side_effect = requests.exceptions.ConnectionError("Network down")
@@ -142,5 +144,5 @@ class TestPowerOperationsDetailed:
             {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
         ):
             client = HomelabClient()
-            with pytest.raises(SystemExit):
+            with pytest.raises(ConnectionError):
                 client.power_on("test-server")

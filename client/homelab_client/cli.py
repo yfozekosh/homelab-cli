@@ -4,6 +4,13 @@ import sys
 import argparse
 from pathlib import Path
 from homelab_client.client import HomelabClient
+from homelab_client.exceptions import (
+    HomelabError,
+    APIError,
+    ConfigurationError,
+    ConnectionError,
+    ValidationError,
+)
 
 
 def main():
@@ -135,7 +142,8 @@ def main():
     # Initialize client
     try:
         client = HomelabClient()
-    except SystemExit:
+    except ConfigurationError as e:
+        print(f"❌ Configuration error: {e}")
         sys.exit(1)
 
     # Check connection on startup
@@ -153,7 +161,8 @@ def main():
                 print("❌ Connection failed")
                 sys.exit(1)
         elif args.command == "config" and args.action == "ssh-healthcheck":
-            client.ssh_healthcheck()
+            if not client.ssh_healthcheck():
+                sys.exit(1)
 
         elif args.command == "plug":
             if args.action == "add":
@@ -202,6 +211,18 @@ def main():
             if args.setting == "price":
                 client.get_electricity_price()
 
+    except ConnectionError as e:
+        print(f"❌ Connection error: {e}")
+        sys.exit(1)
+    except APIError as e:
+        print(f"❌ API error: {e}")
+        sys.exit(1)
+    except ValidationError as e:
+        print(f"❌ Validation error: {e}")
+        sys.exit(1)
+    except HomelabError as e:
+        print(f"❌ Error: {e}")
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\n\n❌ Interrupted")
         sys.exit(1)

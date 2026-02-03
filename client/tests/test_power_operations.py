@@ -60,6 +60,8 @@ class TestPowerOperations:
     @patch("builtins.print")
     def test_power_on_failure(self, mock_print, mock_post, mock_exists, mock_home):
         """Test power on failure"""
+        from homelab_client import APIError
+
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
 
@@ -79,7 +81,7 @@ class TestPowerOperations:
             {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
         ):
             client = HomelabClient()
-            with pytest.raises(SystemExit):
+            with pytest.raises(APIError):
                 client.power_on("test-server")
 
     @patch("homelab_client.config.Path.home")

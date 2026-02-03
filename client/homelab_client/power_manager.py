@@ -4,6 +4,8 @@ import sys
 import json
 import requests
 from .api_client import APIClient
+from .exceptions import APIError, ConnectionError
+from .constants import POWER_OPERATION_TIMEOUT
 
 
 class PowerManager:
@@ -13,7 +15,12 @@ class PowerManager:
         self.api = api_client
 
     def _stream_power_operation(self, endpoint: str, data: dict, action_verb: str):
-        """Stream power operation with real-time logs"""
+        """Stream power operation with real-time logs
+        
+        Raises:
+            APIError: If the operation fails
+            ConnectionError: If cannot connect to server
+        """
         url = f"{self.api.server_url}{endpoint}"
 
         try:
@@ -22,7 +29,7 @@ class PowerManager:
                 headers=self.api.headers,
                 json=data,
                 stream=True,
-                timeout=180,
+                timeout=POWER_OPERATION_TIMEOUT,
             )
 
             # Check for HTTP errors
@@ -32,8 +39,7 @@ class PowerManager:
                     error_msg = error_data.get("detail", f"HTTP {response.status_code}")
                 except:
                     error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-                print(f"\n❌ Error: {error_msg}")
-                sys.exit(1)
+                raise APIError(error_msg, status_code=response.status_code)
 
             print()  # Empty line before logs
 
@@ -89,17 +95,21 @@ class PowerManager:
             return final_result
 
         except requests.exceptions.Timeout:
-            print(f"\n❌ Error: Request timed out after 180 seconds")
-            sys.exit(1)
+            raise APIError(f"Request timed out after {POWER_OPERATION_TIMEOUT} seconds")
         except requests.exceptions.ConnectionError as e:
-            print(f"\n❌ Error: Cannot connect to server - {e}")
-            sys.exit(1)
+            raise ConnectionError(f"Cannot connect to server: {e}")
         except requests.exceptions.RequestException as e:
-            print(f"\n❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"Request failed: {e}")
 
-    def power_on(self, name: str):
-        """Power on a server with real-time progress"""
+    def power_on(self, name: str) -> bool:
+        """Power on a server with real-time progress
+        
+        Returns:
+            bool: True if successful
+            
+        Raises:
+            APIError: If the operation fails
+        """
         print(f"⚡ Powering on server '{name}'...")
 
         result = self._stream_power_operation(
@@ -108,13 +118,17 @@ class PowerManager:
 
         if result and result.get("success"):
             print(f"✓ Server '{name}' powered on successfully")
+            return True
         else:
             message = result.get("message") if result else "Unknown error"
-            print(f"❌ Failed: {message}")
-            sys.exit(1)
+            raise APIError(f"Failed to power on: {message}")
 
-    def power_off(self, name: str):
-        """Power off a server with real-time progress"""
+    def power_off(self, name: str) -> bool:
+        """Power off a server with real-time progress
+        
+        Returns:
+            bool: True if successful
+        """
         print(f"🔴 Powering off server '{name}'...")
 
         result = self._stream_power_operation(
@@ -123,6 +137,8 @@ class PowerManager:
 
         if result and result.get("success"):
             print(f"✓ Server '{name}' powered off successfully")
+            return True
         else:
             message = result.get("message") if result else "Unknown error"
             print(f"⚠️  {message}")
+            return False

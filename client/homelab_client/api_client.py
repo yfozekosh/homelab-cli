@@ -1,8 +1,9 @@
 """Base API client for Homelab server communication"""
 
-import sys
 from typing import Optional, Dict, Any
 import requests
+
+from .exceptions import APIError, ConnectionError
 
 
 class APIClient:
@@ -29,9 +30,14 @@ class APIClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to server: {e}")
+        except requests.exceptions.Timeout as e:
+            raise APIError(f"Request timed out: {e}")
+        except requests.exceptions.HTTPError as e:
+            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"API request failed: {e}")
 
     def _post(
         self, endpoint: str, data: Dict[str, Any], timeout: int = 30
@@ -46,9 +52,14 @@ class APIClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to server: {e}")
+        except requests.exceptions.Timeout as e:
+            raise APIError(f"Request timed out: {e}")
+        except requests.exceptions.HTTPError as e:
+            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"API request failed: {e}")
 
     def _put(
         self, endpoint: str, data: Dict[str, Any], timeout: int = 30
@@ -63,9 +74,14 @@ class APIClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to server: {e}")
+        except requests.exceptions.Timeout as e:
+            raise APIError(f"Request timed out: {e}")
+        except requests.exceptions.HTTPError as e:
+            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"API request failed: {e}")
 
     def _delete(
         self, endpoint: str, data: Optional[Dict[str, Any]] = None, timeout: int = 10
@@ -79,6 +95,11 @@ class APIClient:
             response = requests.delete(f"{self.server_url}{endpoint}", **kwargs)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to server: {e}")
+        except requests.exceptions.Timeout as e:
+            raise APIError(f"Request timed out: {e}")
+        except requests.exceptions.HTTPError as e:
+            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
+            raise APIError(f"API request failed: {e}")

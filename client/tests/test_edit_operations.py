@@ -81,6 +81,8 @@ class TestEditOperations:
     @patch("homelab_client.api_client.requests.put")
     def test_edit_operations_http_error(self, mock_put, mock_exists, mock_home):
         """Test edit operations handle HTTP errors"""
+        from homelab_client import APIError
+
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_response = Mock()
@@ -94,5 +96,5 @@ class TestEditOperations:
             {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
         ):
             client = HomelabClient()
-            with pytest.raises(SystemExit):
+            with pytest.raises(APIError):
                 client.edit_server("nonexistent", hostname="test.local")

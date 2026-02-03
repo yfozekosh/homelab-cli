@@ -137,6 +137,8 @@ class TestPlugOperations:
     @patch("homelab_client.api_client.requests.post")
     def test_add_plug_error(self, mock_post, mock_exists, mock_home):
         """Test add plug with error"""
+        from homelab_client import ConnectionError
+
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_post.side_effect = requests.exceptions.ConnectionError("Connection failed")
@@ -146,5 +148,5 @@ class TestPlugOperations:
             {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
         ):
             client = HomelabClient()
-            with pytest.raises(SystemExit):
+            with pytest.raises(ConnectionError):
                 client.add_plug("test-plug", "192.168.1.10")

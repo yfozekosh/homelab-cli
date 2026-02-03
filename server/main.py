@@ -3,22 +3,40 @@ FastAPI Server for Homelab Management
 """
 
 import os
+import json
 import logging
 import asyncio
-from pathlib import Path
-from typing import Optional
+from typing import Callable, Coroutine, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Security, status
 from fastapi.security import APIKeyHeader
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from .config import Config
 from .plug_service import PlugService
 from .server_service import ServerService
 from .power_service import PowerControlService
 from .status_service import StatusService
+from .schemas import (
+    PlugCreate,
+    PlugRemove,
+    PlugUpdate,
+    ServerCreate,
+    ServerUpdate,
+    ServerRemove,
+    PowerAction,
+    ElectricityPrice,
+)
+from .dependencies import (
+    get_service_container,
+    ServiceContainer,
+    ConfigDep,
+    PlugServiceDep,
+    ServerServiceDep,
+    PowerServiceDep,
+    StatusServiceDep,
+)
 
 # Setup logging
 logging.basicConfig(
@@ -40,75 +58,69 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     return api_key
 
 
-# Pydantic models
-class PlugCreate(BaseModel):
-    name: str
-    ip: str
+async def create_sse_generator(
+    operation_func: Callable[[Callable[[str], None]], Coroutine[Any, Any, dict]],
+    operation_name: str
+):
+    """Create SSE event generator for power operations
+    
+    Args:
+        operation_func: Async function that takes a progress callback and returns result dict
+        operation_name: Name of operation for logging (e.g., "power on", "power off")
+        
+    Yields:
+        SSE formatted events
+    """
+    log_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
 
+    def progress_callback(msg: str):
+        asyncio.run_coroutine_threadsafe(log_queue.put(msg), loop)
 
-class PlugRemove(BaseModel):
-    name: str
+    async def run_operation():
+        try:
+            result = await operation_func(progress_callback)
+            await log_queue.put({"type": "complete", "result": result})
+        except Exception as e:
+            logger.error(f"Failed to {operation_name}: {e}")
+            await log_queue.put({"type": "error", "message": str(e)})
 
+    task = asyncio.create_task(run_operation())
 
-class ServerCreate(BaseModel):
-    name: str
-    hostname: str
-    mac: Optional[str] = None
-    plug: Optional[str] = None
+    while True:
+        try:
+            msg = await asyncio.wait_for(log_queue.get(), timeout=0.5)
 
+            if isinstance(msg, dict):
+                if msg.get("type") == "complete":
+                    yield f"data: {json.dumps(msg['result'])}\n\n"
+                    break
+                elif msg.get("type") == "error":
+                    yield f"event: error\ndata: {msg['message']}\n\n"
+                    break
+            else:
+                yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
 
-class ServerUpdate(BaseModel):
-    name: str
-    hostname: Optional[str] = None
-    mac: Optional[str] = None
-    plug: Optional[str] = None
+        except asyncio.TimeoutError:
+            yield f": keepalive\n\n"
 
-
-class PlugUpdate(BaseModel):
-    name: str
-    ip: str
-
-
-class ServerRemove(BaseModel):
-    name: str
-
-
-class PowerAction(BaseModel):
-    name: str
-
-
-class ElectricityPrice(BaseModel):
-    price: float  # Price per kWh
-
-
-# Global services
-config: Config = None
-plug_service: PlugService = None
-server_service: ServerService = None
-power_service: PowerControlService = None
-status_service: StatusService = None
+    await task
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan"""
-    global config, plug_service, server_service, power_service, status_service
-
+    """Application lifespan - initializes services via dependency container"""
     logger.info("Starting Homelab Server...")
 
-    # Initialize services
-    config_path = Path(os.getenv("CONFIG_PATH", "/app/data/config.json"))
-    config = Config(config_path)
-    plug_service = PlugService()
-    server_service = ServerService()
-    power_service = PowerControlService(plug_service, server_service)
-    status_service = StatusService(config, plug_service, server_service)
-
-    logger.info("Server initialized successfully")
+    # Initialize service container (triggers service creation)
+    container = get_service_container()
+    logger.info("Services initialized successfully")
 
     yield
 
     logger.info("Shutting down Homelab Server...")
+    # Reset container on shutdown (allows clean restart in tests)
+    ServiceContainer.reset()
 
 
 app = FastAPI(
@@ -126,7 +138,7 @@ async def health_check():
 
 
 @app.get("/status", dependencies=[Depends(verify_api_key)])
-async def get_status():
+async def get_status(status_service: StatusServiceDep):
     """Get comprehensive status of all servers and plugs"""
     try:
         status = await status_service.get_all_status()
@@ -137,13 +149,13 @@ async def get_status():
 
 
 @app.get("/plugs", dependencies=[Depends(verify_api_key)])
-async def list_plugs():
+async def list_plugs(config: ConfigDep):
     """List all configured plugs"""
     return {"plugs": config.list_plugs()}
 
 
 @app.post("/plugs", dependencies=[Depends(verify_api_key)])
-async def add_plug(plug: PlugCreate):
+async def add_plug(plug: PlugCreate, config: ConfigDep):
     """Add a new plug"""
     try:
         config.add_plug(plug.name, plug.ip)
@@ -154,7 +166,7 @@ async def add_plug(plug: PlugCreate):
 
 
 @app.put("/plugs", dependencies=[Depends(verify_api_key)])
-async def update_plug(plug: PlugUpdate):
+async def update_plug(plug: PlugUpdate, config: ConfigDep):
     """Update a plug IP address"""
     try:
         if config.update_plug(plug.name, plug.ip):
@@ -166,7 +178,7 @@ async def update_plug(plug: PlugUpdate):
 
 
 @app.delete("/plugs", dependencies=[Depends(verify_api_key)])
-async def remove_plug(plug: PlugRemove):
+async def remove_plug(plug: PlugRemove, config: ConfigDep):
     """Remove a plug"""
     if config.remove_plug(plug.name):
         return {"message": f"Plug '{plug.name}' removed successfully"}
@@ -174,7 +186,7 @@ async def remove_plug(plug: PlugRemove):
 
 
 @app.get("/plugs/{name}/status", dependencies=[Depends(verify_api_key)])
-async def get_plug_status(name: str):
+async def get_plug_status(name: str, config: ConfigDep, plug_service: PlugServiceDep):
     """Get plug status"""
     plug = config.get_plug(name)
     if not plug:
@@ -190,7 +202,7 @@ async def get_plug_status(name: str):
 
 
 @app.post("/plugs/{name}/on", dependencies=[Depends(verify_api_key)])
-async def turn_plug_on(name: str):
+async def turn_plug_on(name: str, config: ConfigDep, plug_service: PlugServiceDep):
     """Turn on a plug"""
     plug = config.get_plug(name)
     if not plug:
@@ -205,7 +217,7 @@ async def turn_plug_on(name: str):
 
 
 @app.post("/plugs/{name}/off", dependencies=[Depends(verify_api_key)])
-async def turn_plug_off(name: str):
+async def turn_plug_off(name: str, config: ConfigDep, plug_service: PlugServiceDep):
     """Turn off a plug"""
     plug = config.get_plug(name)
     if not plug:
@@ -220,7 +232,7 @@ async def turn_plug_off(name: str):
 
 
 @app.get("/servers", dependencies=[Depends(verify_api_key)])
-async def list_servers():
+async def list_servers(config: ConfigDep, server_service: ServerServiceDep):
     """List all configured servers"""
     servers = config.list_servers()
 
@@ -237,7 +249,7 @@ async def list_servers():
 
 
 @app.get("/ssh-healthcheck", dependencies=[Depends(verify_api_key)])
-async def ssh_healthcheck():
+async def ssh_healthcheck(config: ConfigDep, server_service: ServerServiceDep):
     """Check SSH connectivity and sudo permissions for all servers"""
     servers = config.list_servers()
     results = []
@@ -271,7 +283,7 @@ async def ssh_healthcheck():
 
 
 @app.post("/servers", dependencies=[Depends(verify_api_key)])
-async def add_server(server: ServerCreate):
+async def add_server(server: ServerCreate, config: ConfigDep):
     """Add a new server"""
     try:
         config.add_server(server.name, server.hostname, server.mac, server.plug)
@@ -282,7 +294,7 @@ async def add_server(server: ServerCreate):
 
 
 @app.put("/servers", dependencies=[Depends(verify_api_key)])
-async def update_server(server: ServerUpdate):
+async def update_server(server: ServerUpdate, config: ConfigDep):
     """Update server configuration"""
     try:
         if config.update_server(server.name, server.hostname, server.mac, server.plug):
@@ -294,7 +306,7 @@ async def update_server(server: ServerUpdate):
 
 
 @app.delete("/servers", dependencies=[Depends(verify_api_key)])
-async def remove_server(server: ServerRemove):
+async def remove_server(server: ServerRemove, config: ConfigDep):
     """Remove a server"""
     if config.remove_server(server.name):
         return {"message": f"Server '{server.name}' removed successfully"}
@@ -302,7 +314,7 @@ async def remove_server(server: ServerRemove):
 
 
 @app.get("/servers/{name}", dependencies=[Depends(verify_api_key)])
-async def get_server(name: str):
+async def get_server(name: str, config: ConfigDep, server_service: ServerServiceDep):
     """Get server details"""
     server = config.get_server(name)
     if not server:
@@ -317,7 +329,7 @@ async def get_server(name: str):
 
 
 @app.post("/power/on", dependencies=[Depends(verify_api_key)])
-async def power_on_server(action: PowerAction):
+async def power_on_server(action: PowerAction, config: ConfigDep, power_service: PowerServiceDep):
     """Power on a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
@@ -340,59 +352,17 @@ async def power_on_server(action: PowerAction):
             status_code=404, detail=f"Plug '{server['plug']}' not found"
         )
 
-    async def event_generator():
-        """Generate SSE events for real-time progress"""
-        log_queue = asyncio.Queue()
-        loop = asyncio.get_event_loop()
+    async def power_on_operation(progress_callback):
+        return await power_service.power_on(server, plug["ip"], progress_callback)
 
-        def progress_callback(msg: str):
-            # Schedule task in the event loop from sync callback
-            asyncio.run_coroutine_threadsafe(log_queue.put(msg), loop)
-
-        # Start power on operation in background
-        async def run_power_on():
-            try:
-                result = await power_service.power_on(
-                    server, plug["ip"], progress_callback
-                )
-                await log_queue.put({"type": "complete", "result": result})
-            except Exception as e:
-                logger.error(f"Failed to power on server: {e}")
-                await log_queue.put({"type": "error", "message": str(e)})
-
-        task = asyncio.create_task(run_power_on())
-
-        # Stream logs as they arrive
-        while True:
-            try:
-                msg = await asyncio.wait_for(log_queue.get(), timeout=0.5)
-
-                if isinstance(msg, dict):
-                    if msg.get("type") == "complete":
-                        import json
-
-                        yield f"data: {json.dumps(msg['result'])}\n\n"
-                        break
-                    elif msg.get("type") == "error":
-                        yield f"event: error\ndata: {msg['message']}\n\n"
-                        break
-                else:
-                    # Regular log message
-                    import json
-
-                    yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
-
-            except asyncio.TimeoutError:
-                # Keep connection alive
-                yield f": keepalive\n\n"
-
-        await task
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        create_sse_generator(power_on_operation, "power on server"),
+        media_type="text/event-stream"
+    )
 
 
 @app.post("/power/off", dependencies=[Depends(verify_api_key)])
-async def power_off_server(action: PowerAction):
+async def power_off_server(action: PowerAction, config: ConfigDep, power_service: PowerServiceDep):
     """Power off a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
@@ -409,59 +379,17 @@ async def power_off_server(action: PowerAction):
             status_code=404, detail=f"Plug '{server['plug']}' not found"
         )
 
-    async def event_generator():
-        """Generate SSE events for real-time progress"""
-        log_queue = asyncio.Queue()
-        loop = asyncio.get_event_loop()
+    async def power_off_operation(progress_callback):
+        return await power_service.power_off(server, plug["ip"], progress_callback)
 
-        def progress_callback(msg: str):
-            # Schedule task in the event loop from sync callback
-            asyncio.run_coroutine_threadsafe(log_queue.put(msg), loop)
-
-        # Start power off operation in background
-        async def run_power_off():
-            try:
-                result = await power_service.power_off(
-                    server, plug["ip"], progress_callback
-                )
-                await log_queue.put({"type": "complete", "result": result})
-            except Exception as e:
-                logger.error(f"Failed to power off server: {e}")
-                await log_queue.put({"type": "error", "message": str(e)})
-
-        task = asyncio.create_task(run_power_off())
-
-        # Stream logs as they arrive
-        while True:
-            try:
-                msg = await asyncio.wait_for(log_queue.get(), timeout=0.5)
-
-                if isinstance(msg, dict):
-                    if msg.get("type") == "complete":
-                        import json
-
-                        yield f"data: {json.dumps(msg['result'])}\n\n"
-                        break
-                    elif msg.get("type") == "error":
-                        yield f"event: error\ndata: {msg['message']}\n\n"
-                        break
-                else:
-                    # Regular log message
-                    import json
-
-                    yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
-
-            except asyncio.TimeoutError:
-                # Keep connection alive
-                yield f": keepalive\n\n"
-
-        await task
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        create_sse_generator(power_off_operation, "power off server"),
+        media_type="text/event-stream"
+    )
 
 
 @app.post("/settings/electricity-price", dependencies=[Depends(verify_api_key)])
-async def set_electricity_price(price_data: ElectricityPrice):
+async def set_electricity_price(price_data: ElectricityPrice, config: ConfigDep):
     """Set electricity price per kWh"""
     config.set_electricity_price(price_data.price)
     return {
@@ -471,7 +399,7 @@ async def set_electricity_price(price_data: ElectricityPrice):
 
 
 @app.get("/settings/electricity-price", dependencies=[Depends(verify_api_key)])
-async def get_electricity_price():
+async def get_electricity_price(config: ConfigDep):
     """Get current electricity price per kWh"""
     price = config.get_electricity_price()
     return {"price": price}

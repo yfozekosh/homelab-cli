@@ -1,6 +1,5 @@
 """Main Homelab client class - facade for all operations"""
 
-import sys
 import os
 from typing import Optional
 from .config import ConfigManager
@@ -10,6 +9,7 @@ from .server_manager import ServerManager
 from .power_manager import PowerManager
 from .price_manager import PriceManager
 from .status_manager import StatusManager
+from .exceptions import ConfigurationError
 
 
 class HomelabClient:
@@ -33,18 +33,16 @@ class HomelabClient:
 
         # Validate required configuration
         if not self.server_url:
-            print("❌ Error: Server URL not configured.")
-            print(
+            raise ConfigurationError(
+                "Server URL not configured. "
                 "Set HOMELAB_SERVER_URL environment variable or run: lab config set-server <url>"
             )
-            sys.exit(1)
 
         if not self.api_key:
-            print("❌ Error: API key not configured.")
-            print(
+            raise ConfigurationError(
+                "API key not configured. "
                 "Set HOMELAB_API_KEY environment variable or run: lab config set-key <key>"
             )
-            sys.exit(1)
 
         # Initialize API client and managers
         self.api = APIClient(self.server_url, self.api_key)
@@ -88,8 +86,12 @@ class HomelabClient:
         print("✓ API key saved")
 
     # Health check
-    def ssh_healthcheck(self):
-        """Check SSH connectivity and sudo permissions for all servers"""
+    def ssh_healthcheck(self) -> bool:
+        """Check SSH connectivity and sudo permissions for all servers
+        
+        Returns:
+            bool: True if all servers pass health check, False otherwise
+        """
         result = self.api._get("/ssh-healthcheck")
         servers = result.get("results", [])
 
@@ -131,9 +133,10 @@ class HomelabClient:
         if has_errors:
             print("⚠️  Some servers have SSH/sudo issues")
             print("See docs/SUDO_SETUP.md for configuration help")
-            sys.exit(1)
+            return False
         else:
             print("✓ All servers are properly configured")
+            return True
 
     def health_check(self) -> bool:
         """Check server health"""
