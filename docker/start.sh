@@ -3,6 +3,64 @@ set -e
 
 echo "Starting Homelab Server..."
 
+# Setup SSH directory with correct permissions
+if [ -d "/host-ssh" ]; then
+    echo "Setting up SSH keys..."
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    
+    # Copy SSH keys
+    if [ -f "/host-ssh/id_rsa" ]; then
+        cp /host-ssh/id_rsa /root/.ssh/
+        chmod 600 /root/.ssh/id_rsa
+        echo "  ✓ Copied id_rsa"
+    fi
+    
+    if [ -f "/host-ssh/id_ed25519" ]; then
+        cp /host-ssh/id_ed25519 /root/.ssh/
+        chmod 600 /root/.ssh/id_ed25519
+        echo "  ✓ Copied id_ed25519"
+    fi
+    
+    if [ -f "/host-ssh/id_ecdsa" ]; then
+        cp /host-ssh/id_ecdsa /root/.ssh/
+        chmod 600 /root/.ssh/id_ecdsa
+        echo "  ✓ Copied id_ecdsa"
+    fi
+    
+    # Copy known_hosts if exists
+    if [ -f "/host-ssh/known_hosts" ]; then
+        cp /host-ssh/known_hosts /root/.ssh/
+        chmod 600 /root/.ssh/known_hosts
+        echo "  ✓ Copied known_hosts"
+    fi
+    
+    # Copy user config if exists, with strict permissions
+    if [ -f "/host-ssh/config" ]; then
+        cp /host-ssh/config /root/.ssh/config
+        chmod 600 /root/.ssh/config
+        echo "  ✓ Copied user config"
+    fi
+    
+    # Create/append SSH config to disable host key checking
+    # This prevents "Are you sure you want to continue connecting?" prompts
+    cat >> /root/.ssh/config << 'EOF'
+
+# Homelab automation settings
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+EOF
+    chmod 600 /root/.ssh/config
+    echo "  ✓ Configured SSH to skip host verification"
+    
+    echo "SSH setup complete"
+else
+    echo "⚠️  No SSH directory mounted at /host-ssh"
+    echo "   SSH functionality will not work"
+fi
+
 # Start FastAPI server in background
 echo "Starting API server on port 8000..."
 python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 &

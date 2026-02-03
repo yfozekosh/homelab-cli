@@ -5,6 +5,7 @@ Server management service
 import subprocess
 import socket
 import logging
+import os
 from wakeonlan import send_magic_packet
 
 logger = logging.getLogger(__name__)
@@ -13,9 +14,19 @@ logger = logging.getLogger(__name__)
 class ServerService:
     """Handles server operations like ping, resolve, WOL, and shutdown"""
 
+    def __init__(self):
+        # Get SSH username from environment, default to current user
+        self.ssh_user = os.getenv("SSH_USER", os.getenv("USER", "root"))
+        logger.info(f"SSH user configured as: {self.ssh_user}")
+
+    def _build_ssh_target(self, hostname: str) -> str:
+        """Build SSH target with user@hostname format"""
+        return f"{self.ssh_user}@{hostname}"
+
     def test_ssh_connection(self, hostname: str) -> bool:
         """Test if SSH connection works"""
         try:
+            target = self._build_ssh_target(hostname)
             result = subprocess.run(
                 [
                     "ssh",
@@ -25,7 +36,7 @@ class ServerService:
                     "ConnectTimeout=5",
                     "-o",
                     "StrictHostKeyChecking=no",
-                    hostname,
+                    target,
                     "echo test",
                 ],
                 timeout=10,
@@ -40,6 +51,7 @@ class ServerService:
     def test_sudo_poweroff(self, hostname: str) -> bool:
         """Test if sudo poweroff works without password"""
         try:
+            target = self._build_ssh_target(hostname)
             result = subprocess.run(
                 [
                     "ssh",
@@ -49,7 +61,7 @@ class ServerService:
                     "ConnectTimeout=5",
                     "-o",
                     "StrictHostKeyChecking=no",
-                    hostname,
+                    target,
                     "sudo -n poweroff --help",
                 ],
                 timeout=10,
@@ -109,7 +121,8 @@ class ServerService:
 
     def shutdown(self, hostname: str):
         """Send shutdown command to server"""
-        logger.info(f"Sending shutdown command to {hostname}")
+        target = self._build_ssh_target(hostname)
+        logger.info(f"Sending shutdown command to {target}")
         try:
             # Use -o BatchMode=yes to avoid password prompts
             # Use -o StrictHostKeyChecking=no to avoid interactive prompts
@@ -122,7 +135,7 @@ class ServerService:
                     "ConnectTimeout=10",
                     "-o",
                     "StrictHostKeyChecking=no",
-                    hostname,
+                    target,
                     "sudo poweroff",
                 ],
                 timeout=15,

@@ -8,8 +8,9 @@ services:
     network_mode: host
     volumes:
       - ./data:/app/data
-      # Mount SSH directory for server shutdown (read-only)
-      - ${HOME}/.ssh:/root/.ssh:ro
+      # Mount SSH directory to /host-ssh (read-only)
+      # Will be copied with correct permissions by start.sh
+      - ${HOME}/.ssh:/host-ssh:ro
     environment:
       - TAPO_USERNAME=${TAPO_USERNAME}
       - TAPO_PASSWORD=${TAPO_PASSWORD}
