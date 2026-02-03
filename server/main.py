@@ -236,6 +236,40 @@ async def list_servers():
     return {"servers": result}
 
 
+@app.get("/ssh-healthcheck", dependencies=[Depends(verify_api_key)])
+async def ssh_healthcheck():
+    """Check SSH connectivity and sudo permissions for all servers"""
+    servers = config.list_servers()
+    results = []
+
+    for name, server in servers.items():
+        hostname = server["hostname"]
+        result = {
+            "server": name,
+            "hostname": hostname,
+            "ssh_works": False,
+            "sudo_works": False,
+            "error": None,
+        }
+
+        try:
+            # Test SSH connectivity
+            ssh_ok = server_service.test_ssh_connection(hostname)
+            result["ssh_works"] = ssh_ok
+
+            if ssh_ok:
+                # Test sudo permissions
+                sudo_ok = server_service.test_sudo_poweroff(hostname)
+                result["sudo_works"] = sudo_ok
+
+        except Exception as e:
+            result["error"] = str(e)
+
+        results.append(result)
+
+    return {"results": results}
+
+
 @app.post("/servers", dependencies=[Depends(verify_api_key)])
 async def add_server(server: ServerCreate):
     """Add a new server"""

@@ -1,18 +1,95 @@
 """
-Server Management Service
+Server management service
 """
 
-import logging
 import subprocess
+import socket
+import logging
 from wakeonlan import send_magic_packet
 
 logger = logging.getLogger(__name__)
 
 
 class ServerService:
-    """Manages servers (WOL, shutdown, ping)"""
+    """Handles server operations like ping, resolve, WOL, and shutdown"""
+
+    def test_ssh_connection(self, hostname: str) -> bool:
+        """Test if SSH connection works"""
+        try:
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=5",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    hostname,
+                    "echo test",
+                ],
+                timeout=10,
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
+        except Exception as e:
+            logger.error(f"SSH connection test failed: {e}")
+            return False
+
+    def test_sudo_poweroff(self, hostname: str) -> bool:
+        """Test if sudo poweroff works without password"""
+        try:
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=5",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    hostname,
+                    "sudo -n poweroff --help",
+                ],
+                timeout=10,
+                capture_output=True,
+                text=True,
+            )
+            # Check if command succeeded and didn't ask for password
+            return (
+                result.returncode == 0 and "password is required" not in result.stderr
+            )
+        except Exception as e:
+            logger.error(f"Sudo test failed: {e}")
+            return False
+
+    def resolve_hostname(self, hostname: str) -> str:
+        """Resolve hostname to IP address"""
+        try:
+            return socket.gethostbyname(hostname)
+        except socket.gaierror:
+            return "Unable to resolve"
 
     def ping(self, hostname: str, timeout: int = 1) -> bool:
+        """Ping a server"""
+        try:
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", str(timeout), hostname],
+                capture_output=True,
+                timeout=timeout + 1,
+            )
+            return result.returncode == 0
+        except Exception as e:
+            logger.debug(f"Ping failed: {e}")
+            return False
+
+    def send_wol(self, mac: str):
+        """Send Wake-on-LAN packet"""
+        logger.info(f"Sending WOL packet to {mac}")
+        send_magic_packet(mac)
+
+    def shutdown(self, hostname: str):
         """Ping a server"""
         try:
             result = subprocess.run(
@@ -64,7 +141,7 @@ class ServerService:
             if result.returncode != 0 and result.returncode != 255:
                 error_msg = f"SSH command failed with exit code {result.returncode}"
                 if result.stderr:
-                    error_msg += f": {result.stderr}"
+                    error_msg += f": {result.stderr.strip()}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
@@ -76,8 +153,11 @@ class ServerService:
             logger.error(error_msg)
             raise Exception(error_msg)
         except Exception as e:
-            logger.error(f"Failed to send shutdown: {e}")
-            raise
+            # Re-raise with context
+            if "SSH command failed" in str(e) or "not found" in str(e):
+                raise
+            logger.error(f"Unexpected error during shutdown: {e}")
+            raise Exception(f"Failed to send shutdown: {e}")
 
     def resolve_hostname(self, hostname: str) -> str:
         """Resolve hostname to IP address"""

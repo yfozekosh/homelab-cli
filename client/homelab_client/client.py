@@ -88,6 +88,53 @@ class HomelabClient:
         print("✓ API key saved")
 
     # Health check
+    def ssh_healthcheck(self):
+        """Check SSH connectivity and sudo permissions for all servers"""
+        result = self.api._get("/ssh-healthcheck")
+        servers = result.get("results", [])
+
+        print("\n" + "=" * 70)
+        print("SSH Health Check")
+        print("=" * 70 + "\n")
+
+        has_errors = False
+        for server in servers:
+            name = server["server"]
+            hostname = server["hostname"]
+            ssh_ok = server["ssh_works"]
+            sudo_ok = server["sudo_works"]
+            error = server.get("error")
+
+            # Server header
+            print(f"Server: {name} ({hostname})")
+
+            # SSH status
+            if ssh_ok:
+                print("  ✓ SSH connection: OK")
+            else:
+                print(f"  ❌ SSH connection: FAILED")
+                has_errors = True
+
+            # Sudo status
+            if sudo_ok:
+                print("  ✓ Sudo poweroff: OK")
+            else:
+                print(f"  ❌ Sudo poweroff: FAILED")
+                has_errors = True
+
+            # Error details
+            if error:
+                print(f"  Error: {error}")
+
+            print()
+
+        if has_errors:
+            print("⚠️  Some servers have SSH/sudo issues")
+            print("See docs/SUDO_SETUP.md for configuration help")
+            sys.exit(1)
+        else:
+            print("✓ All servers are properly configured")
+
     def health_check(self) -> bool:
         """Check server health"""
         return self.api.health_check()

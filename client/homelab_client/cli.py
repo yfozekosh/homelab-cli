@@ -26,6 +26,9 @@ def main():
     config_key.add_argument("key", help="API key")
 
     config_sub.add_parser("test", help="Test connection to server")
+    config_sub.add_parser(
+        "ssh-healthcheck", help="Check SSH connectivity to all servers"
+    )
 
     # Plug commands
     plug_parser = subparsers.add_parser("plug", help="Manage plugs")
@@ -125,6 +128,9 @@ def main():
         elif args.action == "test":
             # For test, need full client
             pass
+        elif args.action == "ssh-healthcheck":
+            # For ssh-healthcheck, need full client
+            pass
 
     # Initialize client
     try:
@@ -143,11 +149,11 @@ def main():
         if args.command == "config" and args.action == "test":
             if client.health_check():
                 print("✓ Connection successful")
-                print(f"  Server URL: {client.server_url}")
             else:
                 print("❌ Connection failed")
-                print(f"   Server URL: {client.server_url}")
                 sys.exit(1)
+        elif args.command == "config" and args.action == "ssh-healthcheck":
+            client.ssh_healthcheck()
 
         elif args.command == "plug":
             if args.action == "add":
