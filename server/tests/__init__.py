@@ -1,0 +1,1 @@
+"""Server blackbox tests"""
