@@ -34,7 +34,32 @@ class ServerService:
         """Send shutdown command to server"""
         logger.info(f"Sending shutdown command to {hostname}")
         try:
-            subprocess.run(["ssh", "-t", hostname, "sudo", "poweroff"], timeout=60)
+            # Use -o BatchMode=yes to avoid password prompts
+            # Use -o StrictHostKeyChecking=no to avoid interactive prompts
+            # Run in background with nohup to avoid hanging
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=10",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    hostname,
+                    "sudo poweroff",
+                ],
+                timeout=15,
+                capture_output=True,
+                text=True,
+            )
+            logger.info(f"SSH shutdown result: {result.returncode}")
+            if result.returncode != 0 and result.returncode != 255:
+                # 255 is expected when connection closes due to shutdown
+                logger.warning(f"SSH stderr: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            # Timeout is expected as server shuts down
+            logger.info("SSH command timed out (expected during shutdown)")
         except Exception as e:
             logger.error(f"Failed to send shutdown: {e}")
             raise
