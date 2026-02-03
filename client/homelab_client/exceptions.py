@@ -1,5 +1,7 @@
 """Custom exceptions for Homelab client"""
 
+from typing import Optional
+
 
 class HomelabError(Exception):
     """Base exception for all Homelab client errors"""
@@ -10,7 +12,7 @@ class HomelabError(Exception):
 class APIError(HomelabError):
     """Error communicating with the Homelab API"""
 
-    def __init__(self, message: str, status_code: int = None):
+    def __init__(self, message: str, status_code: Optional[int] = None):
         self.message = message
         self.status_code = status_code
         super().__init__(self.message)

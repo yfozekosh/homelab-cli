@@ -6,6 +6,13 @@ import requests
 from .exceptions import APIError, ConnectionError
 
 
+def _get_status_code(e: requests.exceptions.HTTPError) -> Optional[int]:
+    """Extract status code from HTTPError safely"""
+    if e.response is not None:
+        return int(e.response.status_code)
+    return None
+
+
 class APIClient:
     """Base HTTP client for API communication"""
 
@@ -35,7 +42,7 @@ class APIClient:
         except requests.exceptions.Timeout as e:
             raise APIError(f"Request timed out: {e}")
         except requests.exceptions.HTTPError as e:
-            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
+            raise APIError(str(e), status_code=_get_status_code(e))
         except requests.exceptions.RequestException as e:
             raise APIError(f"API request failed: {e}")
 
@@ -57,7 +64,7 @@ class APIClient:
         except requests.exceptions.Timeout as e:
             raise APIError(f"Request timed out: {e}")
         except requests.exceptions.HTTPError as e:
-            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
+            raise APIError(str(e), status_code=_get_status_code(e))
         except requests.exceptions.RequestException as e:
             raise APIError(f"API request failed: {e}")
 
@@ -79,7 +86,7 @@ class APIClient:
         except requests.exceptions.Timeout as e:
             raise APIError(f"Request timed out: {e}")
         except requests.exceptions.HTTPError as e:
-            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
+            raise APIError(str(e), status_code=_get_status_code(e))
         except requests.exceptions.RequestException as e:
             raise APIError(f"API request failed: {e}")
 
@@ -88,7 +95,7 @@ class APIClient:
     ) -> Dict[str, Any]:
         """Make DELETE request to API"""
         try:
-            kwargs = {"headers": self.headers, "timeout": timeout}
+            kwargs: Dict[str, Any] = {"headers": self.headers, "timeout": timeout}
             if data:
                 kwargs["json"] = data
 
@@ -100,6 +107,6 @@ class APIClient:
         except requests.exceptions.Timeout as e:
             raise APIError(f"Request timed out: {e}")
         except requests.exceptions.HTTPError as e:
-            raise APIError(str(e), status_code=e.response.status_code if e.response else None)
+            raise APIError(str(e), status_code=_get_status_code(e))
         except requests.exceptions.RequestException as e:
             raise APIError(f"API request failed: {e}")

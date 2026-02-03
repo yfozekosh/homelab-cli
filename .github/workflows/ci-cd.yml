@@ -55,8 +55,10 @@ jobs:
 
       - name: Run type checker
         run: |
-          pyright --verifytypes server --ignoreexternal
-        continue-on-error: true
+          # Check for type errors (exclude telegram_bot for now - needs separate cleanup)
+          pyright server/main.py server/config.py server/schemas.py server/dependencies.py \
+                  server/plug_service.py server/server_service.py server/power_service.py \
+                  server/status_service.py client/homelab_client/
 
   # Run tests
   test:
