@@ -279,14 +279,25 @@ homelab-cli/
 │   ├── power_service.py # Power control orchestration
 │   └── requirements.txt
 ├── client/              # CLI client
-│   ├── lab.py          # Client script
+│   ├── homelab_client/  # Core client package (modular)
+│   │   ├── __init__.py      # Package initialization
+│   │   ├── client.py        # Main client facade
+│   │   ├── cli.py           # CLI argument parsing
+│   │   ├── config.py        # Configuration management
+│   │   ├── api_client.py    # HTTP API client
+│   │   ├── plug_manager.py  # Plug operations
+│   │   ├── server_manager.py # Server operations
+│   │   ├── power_manager.py # Power control
+│   │   ├── price_manager.py # Electricity price
+│   │   └── status_manager.py # Status monitoring
+│   ├── lab.py           # Entry point script
 │   ├── status_display.py # Status display logic
-│   ├── install.sh      # Installation script
+│   ├── install.sh       # Installation script
 │   ├── requirements.txt
-│   └── tests/          # Test suite (62 tests)
+│   └── tests/           # Test suite (62 tests, 83% coverage)
 │       ├── conftest.py
-│       ├── test_*.py   # Modular test files
-│       └── README.md   # Test documentation
+│       ├── test_*.py    # Modular test files
+│       └── README.md    # Test documentation
 ├── docker/              # Docker configuration
 │   ├── Dockerfile
 │   ├── docker-compose.yml
@@ -295,9 +306,28 @@ homelab-cli/
 └── docs/                # Documentation
 ```
 
+### Client Architecture
+
+The client uses a modular, multi-class architecture following SOLID principles:
+
+- **`HomelabClient`** - Main facade class that composes all managers
+- **`ConfigManager`** - Configuration file management
+- **`APIClient`** - Base HTTP client for all API communication
+- **`PlugManager`** - Smart plug CRUD operations
+- **`ServerManager`** - Server CRUD operations
+- **`PowerManager`** - Power on/off operations
+- **`PriceManager`** - Electricity price management
+- **`StatusManager`** - Status monitoring with follow mode
+
+**Benefits:**
+- Single Responsibility: Each class has one clear purpose
+- Easy Testing: Components can be tested in isolation
+- Maintainability: Changes are contained to specific modules
+- Extensibility: New features can be added without modifying existing code
+
 ### Testing
 
-The client includes comprehensive unit tests with **76% coverage**.
+The client includes comprehensive unit tests with **83% coverage**.
 
 ```bash
 cd client
@@ -323,9 +353,9 @@ open htmlcov/index.html  # or xdg-open on Linux
 
 **Test Statistics:**
 - **62 tests** across 15 modular files
-- **76% coverage** for main client code
+- **83% coverage** for client package
 - **100% pass rate**
-- **~2.25s** execution time
+- **~1.75s** execution time
 
 See [`client/tests/README.md`](client/tests/README.md) for detailed documentation.
 

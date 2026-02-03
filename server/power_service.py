@@ -1,6 +1,7 @@
 """
 Power Control Service - Orchestrates server power management
 """
+
 import asyncio
 import logging
 import time
@@ -19,10 +20,7 @@ class PowerControlService:
         self.server_service = server_service
 
     async def power_on(
-        self,
-        server: Dict,
-        plug_ip: str,
-        progress_callback: Optional[Callable] = None
+        self, server: Dict, plug_ip: str, progress_callback: Optional[Callable] = None
     ) -> Dict:
         """Power on a server with monitoring"""
         result = {"success": False, "message": "", "logs": []}
@@ -63,18 +61,14 @@ class PowerControlService:
         return result
 
     async def _monitor_boot(
-        self,
-        server: Dict,
-        plug_ip: str,
-        duration: int,
-        log_callback: Callable
+        self, server: Dict, plug_ip: str, duration: int, log_callback: Callable
     ) -> bool:
         """Monitor server boot process"""
         start = time.time()
 
         while time.time() - start < duration:
             passed = int(time.time() - start)
-            
+
             if self.server_service.ping(server["hostname"]):
                 log_callback("Server responding to ping!")
                 return True
@@ -90,10 +84,7 @@ class PowerControlService:
         return False
 
     async def power_off(
-        self,
-        server: Dict,
-        plug_ip: str,
-        progress_callback: Optional[Callable] = None
+        self, server: Dict, plug_ip: str, progress_callback: Optional[Callable] = None
     ) -> Dict:
         """Power off a server with monitoring"""
         result = {"success": False, "message": "", "logs": []}
@@ -118,7 +109,7 @@ class PowerControlService:
 
         while time.time() - start < timeout:
             passed = int(time.time() - start)
-            
+
             try:
                 power = await self.plug_service.get_power(plug_ip)
                 log(f"[{passed:02}s] Power: {power:.1f}W")
@@ -141,7 +132,7 @@ class PowerControlService:
         log("Turning off plug...")
         await self.plug_service.turn_off(plug_ip)
         log("Server is offline")
-        
+
         result["success"] = True
         result["message"] = "Server powered off successfully"
         return result

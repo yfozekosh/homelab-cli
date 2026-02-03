@@ -1,6 +1,7 @@
 """
 Plug Management Service
 """
+
 import os
 import logging
 from typing import Optional
@@ -15,9 +16,11 @@ class PlugService:
     def __init__(self):
         self.username = os.getenv("TAPO_USERNAME")
         self.password = os.getenv("TAPO_PASSWORD")
-        
+
         if not self.username or not self.password:
-            raise ValueError("TAPO_USERNAME and TAPO_PASSWORD environment variables must be set")
+            raise ValueError(
+                "TAPO_USERNAME and TAPO_PASSWORD environment variables must be set"
+            )
 
     async def get_client(self, ip: str):
         """Get Tapo client for a plug"""
@@ -58,19 +61,19 @@ class PlugService:
         """Get energy usage statistics"""
         try:
             device = await self.get_client(ip)
-            
+
             # Current power
             current = await device.get_current_power()
-            
+
             # Energy usage
             energy = await device.get_energy_usage()
-            
+
             return {
                 "current_power": current.current_power,  # Watts
-                "today_runtime": energy.today_runtime,   # Minutes
-                "today_energy": energy.today_energy,     # Wh
-                "month_runtime": energy.month_runtime,   # Minutes
-                "month_energy": energy.month_energy,     # Wh
+                "today_runtime": energy.today_runtime,  # Minutes
+                "today_energy": energy.today_energy,  # Wh
+                "month_runtime": energy.month_runtime,  # Minutes
+                "month_energy": energy.month_energy,  # Wh
             }
         except Exception as e:
             logger.warning(f"Failed to get energy usage for {ip}: {e}")
@@ -86,12 +89,8 @@ class PlugService:
         """Get complete status including energy data"""
         device = await self.get_client(ip)
         info = await device.get_device_info()
-        
+
         # Get energy data
         energy_data = await self.get_energy_usage(ip)
-        
-        return {
-            "on": info.device_on,
-            "signal_level": info.signal_level,
-            **energy_data
-        }
+
+        return {"on": info.device_on, "signal_level": info.signal_level, **energy_data}

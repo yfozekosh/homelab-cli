@@ -1,6 +1,7 @@
 """
 Shared pytest fixtures and configuration for homelab client tests
 """
+
 import pytest
 import sys
 import os
@@ -22,7 +23,7 @@ def mock_home(monkeypatch):
 @pytest.fixture
 def mock_exists():
     """Mock Path.exists() to return False by default"""
-    with patch('lab.Path.exists') as mock:
+    with patch("lab.Path.exists") as mock:
         mock.return_value = False
         yield mock
 
@@ -30,10 +31,7 @@ def mock_exists():
 @pytest.fixture
 def mock_env_vars():
     """Mock environment variables for tests"""
-    env = {
-        'HOMELAB_SERVER_URL': 'http://test.local',
-        'HOMELAB_API_KEY': 'test-key'
-    }
+    env = {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"}
     with patch.dict(os.environ, env):
         yield env
 
@@ -41,10 +39,12 @@ def mock_env_vars():
 @pytest.fixture
 def mock_http_response():
     """Create a mock HTTP response"""
+
     def _create_response(status_code=200, json_data=None):
         response = Mock()
         response.status_code = status_code
         if json_data:
             response.json.return_value = json_data
         return response
+
     return _create_response

@@ -2,6 +2,7 @@
 """
 Unit tests for Homelab CLI Client
 """
+
 import pytest
 import json
 import sys
@@ -12,15 +13,15 @@ from pathlib import Path
 import requests
 
 # Import the client
-from lab import HomelabClient
+from homelab_client import HomelabClient
 
 
 class TestHealthCheck:
     """Test health check functionality"""
-    
-    @patch('lab.Path.home')
-    @patch('lab.Path.exists')
-    @patch('lab.requests.get')
+
+    @patch("homelab_client.config.Path.home")
+    @patch("homelab_client.config.Path.exists")
+    @patch("homelab_client.api_client.requests.get")
     def test_health_check_success(self, mock_get, mock_exists, mock_home):
         """Test successful health check"""
         mock_exists.return_value = False
@@ -28,26 +29,31 @@ class TestHealthCheck:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
-        
-        with patch.dict(os.environ, {'HOMELAB_SERVER_URL': 'http://test.local', 'HOMELAB_API_KEY': 'test-key'}):
+
+        with patch.dict(
+            os.environ,
+            {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
+        ):
             client = HomelabClient()
             result = client.health_check()
-        
+
         assert result is True
         mock_get.assert_called_once_with("http://test.local/health", timeout=5)
-    
-    @patch('lab.Path.home')
-    @patch('lab.Path.exists')
-    @patch('lab.requests.get')
+
+    @patch("homelab_client.config.Path.home")
+    @patch("homelab_client.config.Path.exists")
+    @patch("homelab_client.api_client.requests.get")
     def test_health_check_failure(self, mock_get, mock_exists, mock_home):
         """Test failed health check"""
         mock_exists.return_value = False
         mock_home.return_value = Path("/home/test")
         mock_get.side_effect = requests.exceptions.ConnectionError()
-        
-        with patch.dict(os.environ, {'HOMELAB_SERVER_URL': 'http://test.local', 'HOMELAB_API_KEY': 'test-key'}):
+
+        with patch.dict(
+            os.environ,
+            {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
+        ):
             client = HomelabClient()
             result = client.health_check()
-        
-        assert result is False
 
+        assert result is False

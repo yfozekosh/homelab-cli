@@ -1,6 +1,7 @@
 """
 FastAPI Server for Homelab Management
 """
+
 import os
 import logging
 from pathlib import Path
@@ -19,8 +20,7 @@ from .status_service import StatusService
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,7 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     """Verify API key"""
     if api_key != API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
         )
     return api_key
 
@@ -92,9 +91,9 @@ status_service: StatusService = None
 async def lifespan(app: FastAPI):
     """Application lifespan"""
     global config, plug_service, server_service, power_service, status_service
-    
+
     logger.info("Starting Homelab Server...")
-    
+
     # Initialize services
     config_path = Path(os.getenv("CONFIG_PATH", "/app/data/config.json"))
     config = Config(config_path)
@@ -102,11 +101,11 @@ async def lifespan(app: FastAPI):
     server_service = ServerService()
     power_service = PowerControlService(plug_service, server_service)
     status_service = StatusService(config, plug_service, server_service)
-    
+
     logger.info("Server initialized successfully")
-    
+
     yield
-    
+
     logger.info("Shutting down Homelab Server...")
 
 
@@ -114,7 +113,7 @@ app = FastAPI(
     title="Homelab Management API",
     description="REST API for managing smart plugs and servers",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
@@ -178,7 +177,7 @@ async def get_plug_status(name: str):
     plug = config.get_plug(name)
     if not plug:
         raise HTTPException(status_code=404, detail=f"Plug '{name}' not found")
-    
+
     try:
         status = await plug_service.get_status(plug["ip"])
         power = await plug_service.get_power(plug["ip"])
@@ -194,7 +193,7 @@ async def turn_plug_on(name: str):
     plug = config.get_plug(name)
     if not plug:
         raise HTTPException(status_code=404, detail=f"Plug '{name}' not found")
-    
+
     try:
         await plug_service.turn_on(plug["ip"])
         return {"message": f"Plug '{name}' turned on"}
@@ -209,7 +208,7 @@ async def turn_plug_off(name: str):
     plug = config.get_plug(name)
     if not plug:
         raise HTTPException(status_code=404, detail=f"Plug '{name}' not found")
-    
+
     try:
         await plug_service.turn_off(plug["ip"])
         return {"message": f"Plug '{name}' turned off"}
@@ -222,16 +221,16 @@ async def turn_plug_off(name: str):
 async def list_servers():
     """List all configured servers"""
     servers = config.list_servers()
-    
+
     # Add resolved IP and online status
     result = {}
     for name, server in servers.items():
         result[name] = {
             **server,
             "ip": server_service.resolve_hostname(server["hostname"]),
-            "online": server_service.ping(server["hostname"])
+            "online": server_service.ping(server["hostname"]),
         }
-    
+
     return {"servers": result}
 
 
@@ -272,12 +271,12 @@ async def get_server(name: str):
     server = config.get_server(name)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
-    
+
     return {
         "name": name,
         **server,
         "ip": server_service.resolve_hostname(server["hostname"]),
-        "online": server_service.ping(server["hostname"])
+        "online": server_service.ping(server["hostname"]),
     }
 
 
@@ -287,17 +286,24 @@ async def power_on_server(action: PowerAction):
     server = config.get_server(action.name)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{action.name}' not found")
-    
+
     if not server.get("plug"):
-        raise HTTPException(status_code=400, detail=f"No plug associated with server '{action.name}'")
-    
+        raise HTTPException(
+            status_code=400, detail=f"No plug associated with server '{action.name}'"
+        )
+
     if not server.get("mac"):
-        raise HTTPException(status_code=400, detail=f"No MAC address configured for server '{action.name}'")
-    
+        raise HTTPException(
+            status_code=400,
+            detail=f"No MAC address configured for server '{action.name}'",
+        )
+
     plug = config.get_plug(server["plug"])
     if not plug:
-        raise HTTPException(status_code=404, detail=f"Plug '{server['plug']}' not found")
-    
+        raise HTTPException(
+            status_code=404, detail=f"Plug '{server['plug']}' not found"
+        )
+
     try:
         result = await power_service.power_on(server, plug["ip"])
         return result
@@ -312,14 +318,18 @@ async def power_off_server(action: PowerAction):
     server = config.get_server(action.name)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{action.name}' not found")
-    
+
     if not server.get("plug"):
-        raise HTTPException(status_code=400, detail=f"No plug associated with server '{action.name}'")
-    
+        raise HTTPException(
+            status_code=400, detail=f"No plug associated with server '{action.name}'"
+        )
+
     plug = config.get_plug(server["plug"])
     if not plug:
-        raise HTTPException(status_code=404, detail=f"Plug '{server['plug']}' not found")
-    
+        raise HTTPException(
+            status_code=404, detail=f"Plug '{server['plug']}' not found"
+        )
+
     try:
         result = await power_service.power_off(server, plug["ip"])
         return result
@@ -332,7 +342,10 @@ async def power_off_server(action: PowerAction):
 async def set_electricity_price(price_data: ElectricityPrice):
     """Set electricity price per kWh"""
     config.set_electricity_price(price_data.price)
-    return {"message": f"Electricity price set to {price_data.price}", "price": price_data.price}
+    return {
+        "message": f"Electricity price set to {price_data.price}",
+        "price": price_data.price,
+    }
 
 
 @app.get("/settings/electricity-price", dependencies=[Depends(verify_api_key)])
@@ -344,4 +357,5 @@ async def get_electricity_price():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

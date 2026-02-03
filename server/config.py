@@ -1,6 +1,7 @@
 """
 Configuration Manager for Homelab Server
 """
+
 import json
 import logging
 from pathlib import Path
@@ -22,17 +23,27 @@ class Config:
         """Load configuration from file"""
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, "r") as f:
                     return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load config: {e}")
-                return {"plugs": {}, "servers": {}, "state": {}, "settings": {"electricity_price": 0.0}}
-        return {"plugs": {}, "servers": {}, "state": {}, "settings": {"electricity_price": 0.0}}
+                return {
+                    "plugs": {},
+                    "servers": {},
+                    "state": {},
+                    "settings": {"electricity_price": 0.0},
+                }
+        return {
+            "plugs": {},
+            "servers": {},
+            "state": {},
+            "settings": {"electricity_price": 0.0},
+        }
 
     def save(self):
         """Save configuration to file"""
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(self.data, f, indent=2)
             logger.info("Configuration saved")
         except Exception as e:
@@ -70,22 +81,34 @@ class Config:
             return True
         return False
 
-    def add_server(self, name: str, hostname: str, mac: Optional[str] = None, plug_name: Optional[str] = None):
+    def add_server(
+        self,
+        name: str,
+        hostname: str,
+        mac: Optional[str] = None,
+        plug_name: Optional[str] = None,
+    ):
         """Add or update a server"""
         if "servers" not in self.data:
             self.data["servers"] = {}
         self.data["servers"][name] = {
             "hostname": hostname,
             "mac": mac or "",
-            "plug": plug_name
+            "plug": plug_name,
         }
         self.save()
 
-    def update_server(self, name: str, hostname: Optional[str] = None, mac: Optional[str] = None, plug_name: Optional[str] = None):
+    def update_server(
+        self,
+        name: str,
+        hostname: Optional[str] = None,
+        mac: Optional[str] = None,
+        plug_name: Optional[str] = None,
+    ):
         """Update server fields"""
         if name not in self.data.get("servers", {}):
             return False
-        
+
         server = self.data["servers"][name]
         if hostname is not None:
             server["hostname"] = hostname
@@ -93,7 +116,7 @@ class Config:
             server["mac"] = mac
         if plug_name is not None:
             server["plug"] = plug_name
-        
+
         self.save()
         return True
 
@@ -101,7 +124,7 @@ class Config:
         """Update plug IP address"""
         if name not in self.data.get("plugs", {}):
             return False
-        
+
         self.data["plugs"][name]["ip"] = ip
         self.save()
         return True
@@ -110,12 +133,12 @@ class Config:
         """Update server online state and track uptime"""
         if "state" not in self.data:
             self.data["state"] = {}
-        
+
         if name not in self.data["state"]:
             self.data["state"][name] = {
                 "online": online,
                 "last_change": datetime.utcnow().isoformat(),
-                "uptime_start": datetime.utcnow().isoformat() if online else None
+                "uptime_start": datetime.utcnow().isoformat() if online else None,
             }
         else:
             current_state = self.data["state"][name].get("online", False)
@@ -124,10 +147,12 @@ class Config:
                 self.data["state"][name]["online"] = online
                 self.data["state"][name]["last_change"] = datetime.utcnow().isoformat()
                 if online:
-                    self.data["state"][name]["uptime_start"] = datetime.utcnow().isoformat()
+                    self.data["state"][name][
+                        "uptime_start"
+                    ] = datetime.utcnow().isoformat()
                 else:
                     self.data["state"][name]["uptime_start"] = None
-        
+
         self.save()
 
     def get_server_state(self, name: str) -> Optional[Dict]:
@@ -140,7 +165,7 @@ class Config:
             self.data["settings"] = {}
         self.data["settings"]["electricity_price"] = price
         self.save()
-    
+
     def get_electricity_price(self) -> float:
         """Get electricity price per kWh"""
         return self.data.get("settings", {}).get("electricity_price", 0.0)

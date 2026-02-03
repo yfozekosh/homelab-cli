@@ -75,9 +75,21 @@ cp "$SOURCE_FILE" "$INSTALL_DIR/lab"
 chmod +x "$INSTALL_DIR/lab"
 echo -e "${GREEN}✓${NC} Client script installed"
 
+# Copy homelab_client package
+echo "Installing homelab_client package..."
+if [ -d "./client/homelab_client" ]; then
+    cp -r "./client/homelab_client" "$INSTALL_DIR/"
+elif [ -d "./homelab_client" ]; then
+    cp -r "./homelab_client" "$INSTALL_DIR/"
+else
+    echo -e "${RED}❌ Error: Cannot find homelab_client package${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} homelab_client package installed"
+
 # Copy status display module if it exists
-if [ -f "../client/status_display.py" ]; then
-    cp "../client/status_display.py" "$INSTALL_DIR/status_display.py"
+if [ -f "./client/status_display.py" ]; then
+    cp "./client/status_display.py" "$INSTALL_DIR/status_display.py"
 elif [ -f "./status_display.py" ]; then
     cp "./status_display.py" "$INSTALL_DIR/status_display.py"
 fi
