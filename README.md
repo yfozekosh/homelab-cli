@@ -414,6 +414,90 @@ python telegram_bot.py
 
 See LICENSE file for details.
 
+## 🚀 CI/CD Pipeline
+
+The project includes automated testing and deployment via GitHub Actions.
+
+### Pipeline Stages
+
+1. **Lint** - Syntax check with ruff
+2. **Type Check** - Static analysis with pyright
+3. **Test** - Run pytest (must pass with ≥50% coverage)
+4. **Deploy** - Auto-deploy to RPI on master/main push
+
+### Setting Up Deployment
+
+Deployment connects to your home network via WireGuard VPN, then deploys via SSH.
+
+#### 1. Get WireGuard Config from Your Server
+
+If your WireGuard server generates `.conf` files for clients:
+
+```bash
+# On your WG server, generate a new peer config
+# This will produce a file like github-actions.conf
+
+# The config file looks like:
+[Interface]
+PrivateKey = ABC123...=
+Address = 10.0.0.100/24
+
+[Peer]
+PublicKey = XYZ789...=
+Endpoint = vpn.example.com:51820
+AllowedIPs = 10.0.0.0/24, 192.168.1.0/24
+```
+
+#### 2. Extract Values for GitHub Secrets
+
+From the generated `.conf` file, extract these values:
+
+| Config Line | GitHub Secret | Value |
+|-------------|---------------|-------|
+| `PrivateKey = ABC123...=` | `WG_PRIVATE_KEY` | `ABC123...=` |
+| `Address = 10.0.0.100/24` | `WG_CLIENT_IP` | `10.0.0.100` |
+| `PublicKey = XYZ789...=` | `WG_PEER_PUBLIC_KEY` | `XYZ789...=` |
+| `Endpoint = vpn.example.com:51820` | `WG_ENDPOINT` | `vpn.example.com:51820` |
+| `AllowedIPs = 10.0.0.0/24, 192.168.1.0/24` | `WG_ALLOWED_IPS` | `10.0.0.0/24,192.168.1.0/24` |
+
+#### 3. Generate SSH Deploy Key
+
+```bash
+# Generate dedicated key for GitHub Actions
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+
+# Add public key to RPI
+ssh-copy-id -i deploy_key.pub pi@your-rpi-ip
+
+# Copy private key contents → RPI_SSH_PRIVATE_KEY secret
+cat deploy_key
+```
+
+#### 4. Add All Secrets to GitHub
+
+Go to your repository → Settings → Secrets and variables → Actions → New repository secret
+
+| Secret | Description |
+|--------|-------------|
+| `WG_PRIVATE_KEY` | From conf: PrivateKey value |
+| `WG_PEER_PUBLIC_KEY` | From conf: Peer's PublicKey |
+| `WG_ENDPOINT` | From conf: Endpoint (host:port) |
+| `WG_CLIENT_IP` | From conf: Address (without /24) |
+| `WG_ALLOWED_IPS` | From conf: AllowedIPs (comma-separated, no spaces) |
+| `RPI_SSH_PRIVATE_KEY` | Contents of deploy_key file |
+| `RPI_HOST` | RPI IP reachable via VPN (e.g., `192.168.1.50`) |
+| `RPI_USER` | SSH username (e.g., `pi`) |
+| `DEPLOY_PATH` | Where to deploy (e.g., `/home/pi/homelab-cli`) |
+
+#### 5. Verify Setup
+
+Push to master/main and check the Actions tab. The deploy job should:
+1. Connect via WireGuard
+2. SSH into RPI
+3. Sync code and restart containers
+
+See [.github/CICD_SETUP.md](.github/CICD_SETUP.md) for troubleshooting.
+
 ## 🤝 Contributing
 
 Contributions welcome! Please open an issue or submit a pull request.
