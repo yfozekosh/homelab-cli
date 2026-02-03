@@ -24,7 +24,16 @@ class PowerManager:
                 stream=True,
                 timeout=180,
             )
-            response.raise_for_status()
+
+            # Check for HTTP errors
+            if response.status_code >= 400:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("detail", f"HTTP {response.status_code}")
+                except:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                print(f"\n❌ Error: {error_msg}")
+                sys.exit(1)
 
             print()  # Empty line before logs
 
@@ -79,6 +88,12 @@ class PowerManager:
 
             return final_result
 
+        except requests.exceptions.Timeout:
+            print(f"\n❌ Error: Request timed out after 180 seconds")
+            sys.exit(1)
+        except requests.exceptions.ConnectionError as e:
+            print(f"\n❌ Error: Cannot connect to server - {e}")
+            sys.exit(1)
         except requests.exceptions.RequestException as e:
             print(f"\n❌ Error: {e}")
             sys.exit(1)
