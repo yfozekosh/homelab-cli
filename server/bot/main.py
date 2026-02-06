@@ -82,11 +82,37 @@ class HomelabBot:
 
         # Send startup message to allowed users
         if self.allowed_users:
+            # Load build info
+            build_info = {}
+            try:
+                import json
+                # Try relative to module first, then absolute
+                paths = ["server/build_info.json", "build_info.json"]
+                for path in paths:
+                    if os.path.exists(path):
+                        with open(path, "r") as f:
+                            build_info = json.load(f)
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to load build info: {e}")
+
+            message_text = "🚀 *Homelab Bot Deployed and Ready!*\n\n"
+            
+            if build_info:
+                message_text += f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
+                message_text += f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
+                message_text += f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
+                message_text += f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
+                
+                if build_info.get("latest_changes"):
+                    message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
+
             for user_id in self.allowed_users:
                 try:
                     await self.app.bot.send_message(
                         chat_id=user_id,
-                        text="🚀 Homelab Bot Deployed and Ready!"
+                        text=message_text,
+                        parse_mode="Markdown"
                     )
                 except Exception as e:
                     logger.error(f"Failed to send startup message to {user_id}: {e}")
