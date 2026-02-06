@@ -961,6 +961,17 @@ class HomelabBot:
         await self.app.start()
         await self.app.updater.start_polling()
 
+        # Send startup message to allowed users
+        if self.allowed_users:
+            for user_id in self.allowed_users:
+                try:
+                    await self.app.bot.send_message(
+                        chat_id=user_id,
+                        text="🚀 Homelab Bot Deployed and Ready!"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send startup message to {user_id}: {e}")
+
         # Keep running
         while True:
             await asyncio.sleep(1)
