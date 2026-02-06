@@ -160,10 +160,13 @@ jobs:
         run: |
           # Run deploy script
           ssh -o StrictHostKeyChecking=no ${RPI_USER}@${RPI_HOST} << 'ENDSSH'
+            echo "connected" > ~/.deploy_log
             cd ~/lab-cli-py
-            git pull -f
+            echo "before pull" >> ~/.deploy_log
+            git pull -f >> ~/.deply_log
             cd ./docker
             
+            echo "deplot" >> ~/.deploy_log
             ./deploy.sh
           ENDSSH
 
