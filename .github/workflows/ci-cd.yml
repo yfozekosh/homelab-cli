@@ -127,7 +127,8 @@ jobs:
           sudo tee /etc/wireguard/wg0.conf > /dev/null << EOF
           [Interface]
           PrivateKey = ${WG_PRIVATE_KEY}
-          Address = ${WG_CLIENT_IP}/24
+          Address = ${WG_CLIENT_IP}
+          DNS = 10.0.8.10
 
           [Peer]
           PublicKey = ${WG_PEER_PUBLIC_KEY}
