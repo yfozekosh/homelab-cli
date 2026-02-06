@@ -79,6 +79,8 @@ class BotHandlers:
         if not servers:
             await update.message.reply_text("No servers configured.")
             return
+        
+        status_msg = await update.message.reply_text("⏳ *Checking servers...*", parse_mode="Markdown")
 
         keyboard = []
         for name, server in servers.items():
@@ -94,7 +96,7 @@ class BotHandlers:
 
         keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="menu")])
 
-        await update.message.reply_text(
+        await status_msg.edit_text(
             "🖥️ *Servers:*",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -246,6 +248,10 @@ class BotHandlers:
 
     async def _refresh_status(self, query):
         """Refresh and show full status"""
+        await query.edit_message_text(
+            "⏳ *Refreshing status...*",
+            parse_mode="Markdown"
+        )
         try:
             status = await self.status_service.get_all_status()
             text = format_status_text(status)
@@ -282,6 +288,11 @@ class BotHandlers:
             )
             return
 
+        await query.edit_message_text(
+            "⏳ *Checking servers...*",
+            parse_mode="Markdown"
+        )
+
         keyboard = []
         for name, server in servers.items():
             online = self.server_service.ping(server["hostname"])
@@ -314,6 +325,9 @@ class BotHandlers:
                 ),
             )
             return
+        
+        # Plugs list is fast (just config read), but for consistency:
+        # await query.edit_message_text("⏳ *Loading plugs...*", parse_mode="Markdown")
 
         text = "🔌 *Plugs:*\n\n"
         for name, plug in plugs.items():
@@ -337,6 +351,11 @@ class BotHandlers:
                 ),
             )
             return
+
+        await query.edit_message_text(
+            f"⏳ *Loading details for {server_name}...*",
+            parse_mode="Markdown"
+        )
 
         try:
             server_status = await self.status_service.get_server_status(server_name, server_data)
@@ -581,20 +600,21 @@ class BotHandlers:
 
     async def _send_full_status(self, message):
         """Send full status response"""
+        status_msg = await message.reply_text("⏳ *Loading status...*", parse_mode="Markdown")
         try:
             status = await self.status_service.get_all_status()
             text = format_status_text(status)
 
             keyboard = [[InlineKeyboardButton("🔄 Refresh", callback_data="status_refresh")]]
 
-            await message.reply_text(
+            await status_msg.edit_text(
                 text,
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
         except Exception as e:
             logger.error(f"Failed to get status: {e}")
-            await message.reply_text(f"❌ Error getting status: {str(e)}")
+            await status_msg.edit_text(f"❌ Error getting status: {str(e)}")
 
     async def _send_server_status(self, message, server_name: str):
         """Send single server status response"""
@@ -608,6 +628,8 @@ class BotHandlers:
                 parse_mode="Markdown",
             )
             return
+
+        status_msg = await message.reply_text(f"⏳ *Loading details for {server_name}...*", parse_mode="Markdown")
 
         try:
             server_status = await self.status_service.get_server_status(server_name, server_data)
@@ -626,14 +648,14 @@ class BotHandlers:
                     ])
             keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"server:{server_name}")])
 
-            await message.reply_text(
+            await status_msg.edit_text(
                 text,
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
         except Exception as e:
             logger.error(f"Failed to get server status: {e}")
-            await message.reply_text(f"❌ Error getting server status: {str(e)}")
+            await status_msg.edit_text(f"❌ Error getting server status: {str(e)}")
 
     async def _power_on_server_msg(self, message, server_name: str):
         """Power on server via command (with progress)"""
