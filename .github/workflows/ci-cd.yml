@@ -128,7 +128,7 @@ jobs:
           [Interface]
           PrivateKey = ${WG_PRIVATE_KEY}
           Address = ${WG_CLIENT_IP}
-          DNS = 10.0.8.10
+          DNS = 10.0.8.10, fd80:ec75:cae:5455::a
 
           [Peer]
           PublicKey = ${WG_PEER_PUBLIC_KEY}
@@ -160,7 +160,9 @@ jobs:
         run: |
           # Run deploy script
           ssh -o StrictHostKeyChecking=no ${RPI_USER}@${RPI_HOST} << 'ENDSSH'
-            cd ~/lab-cli-py/docker
+            cd ~/lab-cli-py
+            git pull -f
+            cd ./docker
             
             ./deploy.sh
           ENDSSH
