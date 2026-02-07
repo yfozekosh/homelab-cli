@@ -107,6 +107,8 @@ class HomelabBot:
                 if build_info.get("latest_changes"):
                     message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
 
+                message_text += "/start\n"
+
             for user_id in self.allowed_users:
                 try:
                     await self.app.bot.send_message(

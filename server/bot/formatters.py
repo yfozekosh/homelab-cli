@@ -104,3 +104,35 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
                     (f" ({power['month_cost']:.2f}€)" if power.get('month_cost', 0) > 0 else ""))
 
     return "\n".join(lines)
+
+
+def format_plug_status_text(plug: Dict) -> str:
+    """Format single plug status as Telegram message"""
+    lines = []
+    
+    if not plug.get("online"):
+        return f"🔌 *{plug['name']}* 🔴\n\n*Status:* Offline\n*IP:* `{plug['ip']}`\n*Error:* {plug.get('error', 'Unknown')}"
+
+    state_icon = "⚡" if plug["state"] == "on" else "⭕"
+    state_text = "ON" if plug["state"] == "on" else "OFF"
+    
+    lines.append(f"🔌 *{plug['name']}* {state_icon}")
+    lines.append("")
+    lines.append(f"*Status:* {state_text}")
+    lines.append(f"*IP:* `{plug['ip']}`")
+    
+    lines.append("")
+    lines.append("*⚡ Power Stats:*")
+    
+    power_line = f"  Current: {plug['current_power']}W"
+    if plug.get("current_cost_per_hour", 0) > 0:
+        power_line += f" ({plug['current_cost_per_hour']:.4f}€/h)"
+    lines.append(power_line)
+
+    lines.append(f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)" +
+                (f" - {plug['today_cost']:.2f}€" if plug.get('today_cost', 0) > 0 else ""))
+    
+    lines.append(f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)" +
+                (f" - {plug['month_cost']:.2f}€" if plug.get('month_cost', 0) > 0 else ""))
+
+    return "\n".join(lines)

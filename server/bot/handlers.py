@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 
 from ..dependencies import ServiceContainer
 from .keyboards import get_main_menu, get_back_menu_button
-from .formatters import format_status_text, format_server_status_text
+from .formatters import format_status_text, format_server_status_text, format_plug_status_text
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +211,18 @@ class BotHandlers:
             server_name = data.split(":", 1)[1]
             await self._show_server_details(query, server_name)
 
+        elif data.startswith("plug:"):
+            plug_name = data.split(":", 1)[1]
+            await self._show_plug_details(query, plug_name)
+
+        elif data.startswith("plug_on:"):
+            plug_name = data.split(":", 1)[1]
+            await self._toggle_plug(query, plug_name, "on")
+
+        elif data.startswith("plug_off:"):
+            plug_name = data.split(":", 1)[1]
+            await self._toggle_plug(query, plug_name, "off")
+
         elif data.startswith("power_on:"):
             server_name = data.split(":", 1)[1]
             await self._power_on_server(query, server_name)
@@ -314,7 +326,7 @@ class BotHandlers:
         )
 
     async def _show_plugs_list(self, query):
-        """Show plugs list"""
+        """Show plugs list with buttons"""
         plugs = self.config.list_plugs()
 
         if not plugs:
@@ -325,18 +337,33 @@ class BotHandlers:
                 ),
             )
             return
-        
-        # Plugs list is fast (just config read), but for consistency:
-        # await query.edit_message_text("⏳ *Loading plugs...*", parse_mode="Markdown")
-
-        text = "🔌 *Plugs:*\n\n"
-        for name, plug in plugs.items():
-            text += f"• {name} ({plug['ip']})\n"
-
-        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="menu")]]
 
         await query.edit_message_text(
-            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
+            "⏳ *Checking plugs...*",
+            parse_mode="Markdown"
+        )
+        
+        # We don't check status here to keep it fast, just list them
+        # User clicks to see status
+        
+        keyboard = []
+        for name, plug in plugs.items():
+            # Basic button, maybe add status icon if we cache it? 
+            # For now just name
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"🔌 {name}", callback_data=f"plug:{name}"
+                    )
+                ]
+            )
+
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="menu")])
+
+        await query.edit_message_text(
+            "🔌 *Select a Plug:*",
+            parse_mode="Markdown", 
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     async def _show_server_details(self, query, server_name: str):
@@ -596,6 +623,95 @@ class BotHandlers:
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("⬅️ Back to Servers", callback_data="servers")]
                 ]),
+            )
+
+    async def _show_plug_details(self, query, plug_name: str):
+        """Show plug details with actions"""
+        plug_data = self.config.get_plug(plug_name)
+        
+        if not plug_data:
+            await query.edit_message_text(
+                f"❌ Plug '{plug_name}' not found.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("⬅️ Back", callback_data="plugs")]]
+                ),
+            )
+            return
+
+        await query.edit_message_text(
+            f"⏳ *Loading details for {plug_name}...*",
+            parse_mode="Markdown"
+        )
+
+        try:
+            plug_status = await self.status_service.get_plug_status(plug_name, plug_data)
+            text = format_plug_status_text(plug_status)
+
+            keyboard = []
+            
+            if plug_status.get("online"):
+                if plug_status["state"] == "on":
+                    keyboard.append([
+                        InlineKeyboardButton("⭕ Turn Off", callback_data=f"plug_off:{plug_name}")
+                    ])
+                else:
+                    keyboard.append([
+                        InlineKeyboardButton("⚡ Turn On", callback_data=f"plug_on:{plug_name}")
+                    ])
+            
+            keyboard.append([
+                InlineKeyboardButton("🔄 Refresh", callback_data=f"plug:{plug_name}"),
+                InlineKeyboardButton("⬅️ Back", callback_data="plugs"),
+            ])
+
+            await query.edit_message_text(
+                text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except Exception as e:
+            logger.error(f"Failed to get plug details: {e}")
+            await query.edit_message_text(
+                f"❌ Error getting plug details: {str(e)}",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("⬅️ Back", callback_data="plugs")]]
+                )
+            )
+
+    async def _toggle_plug(self, query, plug_name: str, action: str):
+        """Toggle plug power state"""
+        plug_data = self.config.get_plug(plug_name)
+        
+        if not plug_data:
+            await query.answer(f"Plug '{plug_name}' not found.", show_alert=True)
+            return
+
+        # Acknowledge button press
+        await query.answer(f"Turning {action} {plug_name}...")
+        
+        action_text = "Turning ON" if action == "on" else "Turning OFF"
+        await query.edit_message_text(
+            f"⏳ *{action_text} {plug_name}...*",
+            parse_mode="Markdown"
+        )
+        
+        try:
+            if action == "on":
+                await self.plug_service.turn_on(plug_data["ip"])
+            else:
+                await self.plug_service.turn_off(plug_data["ip"])
+                
+            # Wait a moment for state to change
+            await asyncio.sleep(1)
+            
+            # Refresh details
+            await self._show_plug_details(query, plug_name)
+            
+        except Exception as e:
+            logger.error(f"Failed to toggle plug: {e}")
+            await query.edit_message_text(
+                f"❌ Error toggling plug: {str(e)}",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Back", callback_data=f"plug:{plug_name}")]
+                ])
             )
 
     async def _send_full_status(self, message):
