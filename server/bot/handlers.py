@@ -8,7 +8,14 @@ from telegram.ext import ContextTypes
 
 from ..dependencies import ServiceContainer
 from .keyboards import get_main_menu, get_back_menu_button
-from .formatters import format_status_text, format_server_status_text, format_plug_status_text
+from .formatters import (
+    format_status_text, 
+    format_server_status_text, 
+    format_plug_status_text,
+    format_short_status,
+    format_servers_summary,
+    format_plugs_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +49,17 @@ class BotHandlers:
             )
             return
 
+        # Get quick status
+        try:
+            status = await self.status_service.get_all_status()
+            status_text = format_short_status(status)
+        except Exception as e:
+            logger.error(f"Failed to get status: {e}")
+            status_text = "📊 *Quick Status:* (Unable to load)"
+
         await update.message.reply_text(
             "🏠 *Homelab Management Bot*\n\n"
-            "Welcome! Use buttons or commands:\n\n"
+            f"{status_text}\n\n"
             "*Commands:*\n"
             "`/status` - Full status overview\n"
             "`/status <server>` - Server details\n"
@@ -52,7 +67,8 @@ class BotHandlers:
             "`/off <server>` - Power off server\n"
             "`/servers` - List servers\n"
             "`/plugs` - List plugs\n"
-            "`/menu` - Show menu",
+            "`/menu` - Show menu\n"
+            "`/clear` - Clear chat",
             parse_mode="Markdown",
             reply_markup=get_main_menu(),
         )
@@ -68,8 +84,18 @@ class BotHandlers:
             await update.message.reply_text("❌ Access denied.")
             return
 
+        # Get quick status
+        try:
+            status = await self.status_service.get_all_status()
+            status_text = format_short_status(status)
+        except Exception as e:
+            logger.error(f"Failed to get status: {e}")
+            status_text = "📊 *Quick Status:* (Unable to load)"
+
         await update.message.reply_text(
-            "🏠 Main Menu:", reply_markup=get_main_menu()
+            f"🏠 *Main Menu*\n\n{status_text}",
+            parse_mode="Markdown",
+            reply_markup=get_main_menu()
         )
 
     async def servers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -181,6 +207,25 @@ class BotHandlers:
         server_name = args[0]
         await self._power_on_server_msg(update.message, server_name)
 
+    async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /clear command - clear chat history"""
+        if not update.effective_user or not update.message:
+            return
+        
+        user_id = update.effective_user.id
+
+        if not self._check_access(user_id):
+            await update.message.reply_text("❌ Access denied.")
+            return
+
+        # Send multiple newlines to push messages up
+        clear_text = "\n" * 50
+        await update.message.reply_text(
+            f"{clear_text}🧹 *Chat cleared*\n\nUse /menu to continue.",
+            parse_mode="Markdown",
+            reply_markup=get_main_menu()
+        )
+
     async def off_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /off <server_name> command"""
         if not update.effective_user or not update.message:
@@ -221,8 +266,18 @@ class BotHandlers:
         data = query.data
 
         if data == "menu":
+            # Get quick status for menu
+            try:
+                status = await self.status_service.get_all_status()
+                status_text = format_short_status(status)
+            except Exception as e:
+                logger.error(f"Failed to get status: {e}")
+                status_text = "📊 *Quick Status:* (Unable to load)"
+            
             await query.edit_message_text(
-                "🏠 Main Menu:", reply_markup=get_main_menu()
+                f"🏠 *Main Menu*\n\n{status_text}",
+                parse_mode="Markdown",
+                reply_markup=get_main_menu()
             )
 
         elif data == "servers":
@@ -315,7 +370,7 @@ class BotHandlers:
             )
 
     async def _show_servers_list(self, query):
-        """Show servers list with buttons"""
+        """Show servers list with status summary and buttons"""
         servers = self.config.list_servers()
 
         if not servers:
@@ -332,14 +387,29 @@ class BotHandlers:
             parse_mode="Markdown"
         )
 
+        # Get status for all servers
+        servers_status = []
+        try:
+            status = await self.status_service.get_all_status()
+            servers_status = status.get("servers", [])
+            summary_text = format_servers_summary(servers_status)
+        except Exception as e:
+            logger.error(f"Failed to get servers status: {e}")
+            # Fallback to simple ping check
+            servers_status = []
+            for name, server in servers.items():
+                online = self.server_service.ping(server["hostname"])
+                servers_status.append({"name": name, "online": online})
+            summary_text = format_servers_summary(servers_status)
+
         keyboard = []
-        for name, server in servers.items():
-            online = self.server_service.ping(server["hostname"])
-            status = "🟢" if online else "🔴"
+        for server_info in servers_status:
+            status_icon = "🟢" if server_info.get("online") else "🔴"
             keyboard.append(
                 [
                     InlineKeyboardButton(
-                        f"{status} {name}", callback_data=f"server:{name}"
+                        f"{status_icon} {server_info['name']}", 
+                        callback_data=f"server:{server_info['name']}"
                     )
                 ]
             )
@@ -347,13 +417,13 @@ class BotHandlers:
         keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="menu")])
 
         await query.edit_message_text(
-            "🖥️ *Servers:*",
+            summary_text,
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
     async def _show_plugs_list(self, query):
-        """Show plugs list with buttons"""
+        """Show plugs list with status summary and buttons"""
         plugs = self.config.list_plugs()
 
         if not plugs:
@@ -370,17 +440,32 @@ class BotHandlers:
             parse_mode="Markdown"
         )
         
-        # We don't check status here to keep it fast, just list them
-        # User clicks to see status
+        # Get status for all plugs
+        plugs_status = []
+        try:
+            status = await self.status_service.get_all_status()
+            plugs_status = status.get("plugs", [])
+            summary_text = format_plugs_summary(plugs_status)
+        except Exception as e:
+            logger.error(f"Failed to get plugs status: {e}")
+            # Fallback to simple list
+            plugs_status = [{"name": name, "online": False} for name in plugs.keys()]
+            summary_text = format_plugs_summary(plugs_status)
         
         keyboard = []
-        for name, plug in plugs.items():
-            # Basic button, maybe add status icon if we cache it? 
-            # For now just name
+        for plug_info in plugs_status:
+            if not plug_info.get("online"):
+                icon = "🔴"
+            elif plug_info.get("state") == "on":
+                icon = "⚡"
+            else:
+                icon = "⭕"
+            
             keyboard.append(
                 [
                     InlineKeyboardButton(
-                        f"🔌 {name}", callback_data=f"plug:{name}"
+                        f"{icon} {plug_info['name']}", 
+                        callback_data=f"plug:{plug_info['name']}"
                     )
                 ]
             )
@@ -388,7 +473,7 @@ class BotHandlers:
         keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="menu")])
 
         await query.edit_message_text(
-            "🔌 *Select a Plug:*",
+            summary_text,
             parse_mode="Markdown", 
             reply_markup=InlineKeyboardMarkup(keyboard)
         )

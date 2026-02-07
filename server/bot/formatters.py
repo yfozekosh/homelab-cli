@@ -1,4 +1,56 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
+
+def format_short_status(status: Dict) -> str:
+    """Format short status summary for main menu"""
+    summary = status["summary"]
+    lines = []
+    
+    lines.append("📊 *Quick Status:*")
+    lines.append(f"  🖥️ Servers: {summary['servers_online']}/{summary['servers_total']} online")
+    lines.append(f"  🔌 Plugs: {summary['plugs_on']}/{summary['plugs_total']} on")
+    lines.append(f"  ⚡ Power: {summary['total_power']:.1f}W")
+    
+    return "\n".join(lines)
+
+def format_servers_summary(servers: List[Dict]) -> str:
+    """Format servers summary for servers list view"""
+    lines = []
+    online_count = sum(1 for s in servers if s.get("online", False))
+    total_count = len(servers)
+    
+    lines.append(f"🖥️ *Servers:* {online_count}/{total_count} online")
+    
+    if servers:
+        lines.append("")
+        for server in servers:
+            status = "🟢" if server.get("online") else "🔴"
+            power_info = ""
+            if server.get("power"):
+                power_info = f" - {server['power']['current']}W"
+            lines.append(f"{status} {server['name']}{power_info}")
+    
+    return "\n".join(lines)
+
+def format_plugs_summary(plugs: List[Dict]) -> str:
+    """Format plugs summary for plugs list view"""
+    lines = []
+    on_count = sum(1 for p in plugs if p.get("state") == "on" and p.get("online"))
+    total_count = len(plugs)
+    online_count = sum(1 for p in plugs if p.get("online"))
+    
+    lines.append(f"🔌 *Plugs:* {on_count}/{total_count} on ({online_count} online)")
+    
+    if plugs:
+        lines.append("")
+        for plug in plugs:
+            if not plug.get("online"):
+                lines.append(f"🔴 {plug['name']} - offline")
+            else:
+                state_icon = "⚡" if plug["state"] == "on" else "⭕"
+                power_info = f" - {plug['current_power']}W" if plug.get('current_power') else ""
+                lines.append(f"{state_icon} {plug['name']}{power_info}")
+    
+    return "\n".join(lines)
 
 def format_status_text(status: Dict) -> str:
     """Format full status as Telegram message (CLI-like)"""

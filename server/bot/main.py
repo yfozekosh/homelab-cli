@@ -68,6 +68,7 @@ class HomelabBot:
         self.app.add_handler(CommandHandler("status", self.handlers.status_command))
         self.app.add_handler(CommandHandler("on", self.handlers.on_command))
         self.app.add_handler(CommandHandler("off", self.handlers.off_command))
+        self.app.add_handler(CommandHandler("clear", self.handlers.clear_command))
         self.app.add_handler(CallbackQueryHandler(self.handlers.button_callback))
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handlers.unknown_message)
