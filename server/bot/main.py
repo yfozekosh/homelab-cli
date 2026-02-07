@@ -78,7 +78,8 @@ class HomelabBot:
         logger.info("Starting Telegram bot...")
         await self.app.initialize()
         await self.app.start()
-        await self.app.updater.start_polling()
+        if self.app.updater:
+            await self.app.updater.start_polling()
 
         # Send startup message to allowed users
         if self.allowed_users:
@@ -126,7 +127,8 @@ class HomelabBot:
     async def stop(self):
         """Stop the bot"""
         logger.info("Stopping Telegram bot...")
-        await self.app.updater.stop()
+        if self.app.updater:
+            await self.app.updater.stop()
         await self.app.stop()
         await self.app.shutdown()
 

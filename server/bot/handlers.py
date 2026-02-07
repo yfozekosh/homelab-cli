@@ -30,6 +30,9 @@ class BotHandlers:
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -56,6 +59,9 @@ class BotHandlers:
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -68,6 +74,9 @@ class BotHandlers:
 
     async def servers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /servers command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -104,6 +113,9 @@ class BotHandlers:
 
     async def plugs_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /plugs command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -128,6 +140,9 @@ class BotHandlers:
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status [server_name] command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -145,6 +160,9 @@ class BotHandlers:
 
     async def on_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /on <server_name> command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -165,6 +183,9 @@ class BotHandlers:
 
     async def off_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /off <server_name> command"""
+        if not update.effective_user or not update.message:
+            return
+        
         user_id = update.effective_user.id
 
         if not self._check_access(user_id):
@@ -186,6 +207,9 @@ class BotHandlers:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
         query = update.callback_query
+        if not query or not query.from_user or not query.data:
+            return
+        
         user_id = query.from_user.id
 
         if not self._check_access(user_id):
@@ -252,6 +276,9 @@ class BotHandlers:
 
     async def unknown_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle unknown messages"""
+        if not update.message:
+            return
+        
         await update.message.reply_text(
             "Use /menu to see available commands.", reply_markup=get_main_menu()
         )
