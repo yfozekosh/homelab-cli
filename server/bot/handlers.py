@@ -29,7 +29,7 @@ class BotHandlers:
         self.status_service = container.status_service
         self.allowed_users = allowed_users
         self.event_service = container.event_service
-        self.event_service.addListener("status_update", self.handle_status_update)
+        self.event_service.add_listener("status_update", self.handle_status_update)
 
     def _check_access(self, user_id: int) -> bool:
         """Check if user has access"""
