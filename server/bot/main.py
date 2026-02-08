@@ -26,6 +26,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def escape_markdown_v2(text: str) -> str:
+    """Escape special characters for Telegram MarkdownV2"""
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+
 class HomelabBot:
     """Telegram bot for homelab management"""
 
@@ -74,7 +82,9 @@ class HomelabBot:
         if data.get("commit"):
             message += f"📝 Commit: `{data['commit'][:7]}`\n"
         if data.get("message"):
-            message += f"💬 Message: {data['message']}\n"
+            # Escape markdown special characters in commit message
+            escaped_message = escape_markdown_v2(data['message'])
+            message += f"💬 Message: {escaped_message}\n"
         if data.get("branch"):
             message += f"🌿 Branch: {data['branch']}\n"
         message += "\n⏳ Deploying updates..."
@@ -166,15 +176,19 @@ class HomelabBot:
             message_text = "🚀 *Homelab Bot Deployed and Ready!*\n\n"
             
             if build_info:
+                # Escape special Markdown characters in commit message
+                commit_message = build_info.get('commit_message', 'Unknown')
+                commit_message_escaped = escape_markdown_v2(commit_message)
+                
                 message_text += f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
                 message_text += f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
                 message_text += f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
-                message_text += f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
+                message_text += f"📝 *Message:* {commit_message_escaped}\n"
                 
                 if build_info.get("latest_changes"):
                     message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
 
-                message_text += "/start\n"
+            message_text += "\nUse /start to begin\n"
 
             for user_id in self.allowed_users:
                 try:
