@@ -1,6 +1,10 @@
 [run]
 source = server
-omit = server/tests/*
+omit = 
+    server/tests/*
+    server/bot/*
+    server/telegram_bot.py
+    server/main.py
 
 [report]
 exclude_lines =

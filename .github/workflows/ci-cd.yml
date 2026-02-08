@@ -91,6 +91,7 @@ jobs:
             server/tests/test_server_service.py \
             server/tests/test_plug_service.py \
             server/tests/test_config_unit.py \
+            server/tests/test_event_service.py \
             --cov=client --cov=server \
             --cov-report=xml \
             --cov-fail-under=50 \
