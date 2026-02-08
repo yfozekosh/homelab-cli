@@ -73,9 +73,11 @@ class HomelabBot:
         message = "🚀 *Deployment Started*\n\n"
         if data.get("commit"):
             message += f"📝 Commit: `{data['commit'][:7]}`\n"
+        if data.get("message"):
+            message += f"💬 Message: {data['message']}\n"
         if data.get("branch"):
             message += f"🌿 Branch: {data['branch']}\n"
-        message += "\nDeploying updates..."
+        message += "\n⏳ Deploying updates..."
         await self.broadcast_message(message)
 
     async def _on_deployment_completed(self, data: dict):

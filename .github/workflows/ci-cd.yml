@@ -149,10 +149,13 @@ jobs:
           API_URL: ${{ secrets.HOMELAB_API_URL }}
           API_KEY: ${{ secrets.API_KEY }}
         run: |
+          # Get commit message and escape quotes
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -1 | sed 's/"/\\"/g')
+          
           curl -X POST "${API_URL}/events/deployment.started" \
             -H "X-API-Key: ${API_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"commit\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"workflow\":\"${{ github.workflow }}\"}" \
+            -d "{\"commit\":\"${{ github.sha }}\",\"message\":\"${COMMIT_MSG}\",\"branch\":\"${{ github.ref_name }}\",\"workflow\":\"${{ github.workflow }}\"}" \
             || echo "Failed to send deployment notification"
 
       - name: Setup SSH key
