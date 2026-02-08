@@ -49,6 +49,9 @@ class BotHandlers:
             )
             return
 
+        # Reload config to get latest changes
+        self.config.reload()
+
         # Get quick status
         try:
             status = await self.status_service.get_all_status()
@@ -83,6 +86,9 @@ class BotHandlers:
         if not self._check_access(user_id):
             await update.message.reply_text("❌ Access denied.")
             return
+
+        # Reload config to get latest changes
+        self.config.reload()
 
         # Get quick status
         try:
@@ -266,6 +272,9 @@ class BotHandlers:
         data = query.data
 
         if data == "menu":
+            # Reload config to get latest changes
+            self.config.reload()
+            
             # Get quick status for menu
             try:
                 status = await self.status_service.get_all_status()

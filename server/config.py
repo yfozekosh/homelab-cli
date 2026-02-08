@@ -50,6 +50,11 @@ class Config:
             logger.error(f"Failed to save config: {e}")
             raise
 
+    def reload(self):
+        """Reload configuration from file"""
+        self.data = self._load()
+        logger.debug("Configuration reloaded")
+
     def get_plug(self, name: str) -> Optional[Dict]:
         """Get plug configuration by name"""
         return self.data.get("plugs", {}).get(name)
