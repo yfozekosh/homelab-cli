@@ -75,10 +75,30 @@ def format_status_text(status: Dict) -> str:
             lines.append(f"\n{status_icon} *{server['name']}*")
             lines.append(f"  Host: `{server['hostname']}` ({server['ip']})")
 
-            if server["online"] and server.get("uptime"):
-                lines.append(f"  Uptime: {server['uptime']}")
-            elif not server["online"] and server.get("downtime"):
-                lines.append(f"  Downtime: {server['downtime']}")
+            # Show current uptime/downtime on one line
+            time_info = []
+            if server.get("uptime"):
+                time_info.append(f"UP:{server['uptime']}")
+            if server.get("downtime"):
+                time_info.append(f"DOWN:{server['downtime']}")
+            
+            # Add monthly stats if available from plug
+            if server.get("power"):
+                power = server["power"]
+                # Monthly uptime from plug runtime
+                if power.get("month_runtime"):
+                    month_hours = power["month_runtime"] / 60  # Convert minutes to hours
+                    time_info.append(f"UP_M:{month_hours:.1f}h")
+                
+                # Calculate downtime (rough estimate: hours in month - uptime)
+                # Assuming ~720 hours per month (30 days * 24 hours)
+                if power.get("month_runtime"):
+                    month_hours = power["month_runtime"] / 60
+                    estimated_downtime = max(0, 720 - month_hours)
+                    time_info.append(f"DOWN_M:{estimated_downtime:.1f}h")
+            
+            if time_info:
+                lines.append(f"  {' | '.join(time_info)}")
 
             if server.get("power"):
                 power = server["power"]
@@ -136,10 +156,22 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
     if server.get("plug"):
         lines.append(f"*Plug:* {server['plug']}")
 
-    if server["online"] and server.get("uptime"):
-        lines.append(f"*Uptime:* {server['uptime']}")
-    elif not server["online"] and server.get("downtime"):
-        lines.append(f"*Downtime:* {server['downtime']}")
+    # Show uptime/downtime stats on one line
+    time_info = []
+    if server.get("uptime"):
+        time_info.append(f"UP:{server['uptime']}")
+    if server.get("downtime"):
+        time_info.append(f"DOWN:{server['downtime']}")
+    
+    # Add monthly stats if available from plug
+    if server.get("power") and server["power"].get("month_runtime"):
+        month_hours = server["power"]["month_runtime"] / 60
+        time_info.append(f"UP_M:{month_hours:.1f}h")
+        estimated_downtime = max(0, 720 - month_hours)
+        time_info.append(f"DOWN_M:{estimated_downtime:.1f}h")
+    
+    if time_info:
+        lines.append(f"*Time:* {' | '.join(time_info)}")
 
     if server.get("power"):
         power = server["power"]

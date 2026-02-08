@@ -144,6 +144,7 @@ class StatusService:
                         "today_cost": round(today_cost, 4),
                         "month_energy": round(plug_status["month_energy"], 1),
                         "month_cost": round(month_cost, 4),
+                        "month_runtime": plug_status.get("month_runtime", 0),  # Add runtime in minutes
                     }
                 except Exception as e:
                     logger.warning(f"Failed to get power info for {name}: {e}")
