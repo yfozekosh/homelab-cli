@@ -1,5 +1,4 @@
 """Test electricity price endpoints"""
-import pytest
 
 class TestElectricityPrice:
     def test_get_price_returns_200(self, api_client):

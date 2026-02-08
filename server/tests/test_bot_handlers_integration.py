@@ -1,7 +1,7 @@
 """Integration tests for bot handlers and event service"""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import patch
 import tempfile
 import json
 import os

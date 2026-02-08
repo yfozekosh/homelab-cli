@@ -1,5 +1,4 @@
 """Test telegram notification configuration"""
-import pytest
 
 def test_telegram_config_endpoint_exists(api_client):
     # Try to get telegram config

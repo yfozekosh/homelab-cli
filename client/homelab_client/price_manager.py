@@ -21,4 +21,4 @@ class PriceManager:
         if price > 0:
             print(f"💰 Current electricity price: {price} per kWh")
         else:
-            print(f"💰 No electricity price set (set with: lab set price <value>)")
+            print("💰 No electricity price set (set with: lab set price <value>)")

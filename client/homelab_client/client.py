@@ -114,14 +114,14 @@ class HomelabClient:
             if ssh_ok:
                 print("  ✓ SSH connection: OK")
             else:
-                print(f"  ❌ SSH connection: FAILED")
+                print("  ❌ SSH connection: FAILED")
                 has_errors = True
 
             # Sudo status
             if sudo_ok:
                 print("  ✓ Sudo poweroff: OK")
             else:
-                print(f"  ❌ Sudo poweroff: FAILED")
+                print("  ❌ Sudo poweroff: FAILED")
                 has_errors = True
 
             # Error details

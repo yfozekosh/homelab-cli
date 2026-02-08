@@ -1,5 +1,4 @@
 """Test detailed status information"""
-import pytest
 
 def test_status_response_structure(api_client):
     """Test status response has correct structure"""

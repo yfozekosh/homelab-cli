@@ -1,5 +1,4 @@
 """Test server management endpoints"""
-import pytest
 
 class TestListServers:
     def test_list_servers_returns_200(self, api_client):

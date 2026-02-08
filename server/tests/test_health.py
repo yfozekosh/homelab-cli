@@ -1,5 +1,4 @@
 """Test basic server functionality and health endpoints"""
-import pytest
 
 
 class TestHealth:

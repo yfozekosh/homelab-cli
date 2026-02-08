@@ -1,6 +1,5 @@
 """Unit tests for server constants module"""
 
-import pytest
 from server.constants import (
     DEFAULT_TIMEOUT,
     SHORT_TIMEOUT,

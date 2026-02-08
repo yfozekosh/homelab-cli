@@ -5,7 +5,6 @@ Plug Management Service
 import os
 import logging
 import asyncio
-from typing import Optional
 from tapo import ApiClient
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,4 @@
 """Test edge cases and boundary conditions"""
-import pytest
 
 class TestInputValidation:
     def test_plug_with_very_long_name(self, api_client):

@@ -1,5 +1,4 @@
 """Test individual plug status and control"""
-import pytest
 
 def test_get_plug_status(api_client):
     """Test getting status of a specific plug"""

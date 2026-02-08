@@ -1,5 +1,4 @@
 """Extended server management tests"""
-import pytest
 
 def test_add_server_with_all_fields(api_client):
     response = api_client.post("/servers", json={

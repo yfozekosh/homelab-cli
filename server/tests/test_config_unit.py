@@ -1,6 +1,4 @@
 """Unit tests for Config class"""
-import pytest
-import json
 import tempfile
 from pathlib import Path
 

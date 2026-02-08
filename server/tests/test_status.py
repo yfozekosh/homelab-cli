@@ -1,5 +1,4 @@
 """Test status endpoint"""
-import pytest
 
 class TestStatus:
     def test_status_returns_200(self, api_client):

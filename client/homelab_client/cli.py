@@ -2,7 +2,6 @@
 
 import sys
 import argparse
-from pathlib import Path
 from homelab_client.client import HomelabClient
 from homelab_client.exceptions import (
     HomelabError,

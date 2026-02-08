@@ -1,5 +1,4 @@
 """Test power operation endpoints"""
-import pytest
 
 class TestPowerOperations:
     def test_power_on_nonexistent_server_returns_404(self, api_client):

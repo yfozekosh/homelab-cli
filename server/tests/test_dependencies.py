@@ -4,7 +4,6 @@ import os
 import pytest
 import tempfile
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 from server.dependencies import (

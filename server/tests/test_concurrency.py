@@ -1,5 +1,4 @@
 """Test concurrent requests"""
-import pytest
 import concurrent.futures
 
 class TestConcurrency:

@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from ..dependencies import ServiceContainer
-from .keyboards import get_main_menu, get_back_menu_button
+from .keyboards import get_main_menu
 from .formatters import (
     format_status_text,
     format_server_status_text,

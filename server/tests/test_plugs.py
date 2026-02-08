@@ -1,5 +1,4 @@
 """Test plug management endpoints"""
-import pytest
 
 class TestListPlugs:
     def test_list_plugs_returns_200(self, api_client):

@@ -98,7 +98,7 @@ async def create_sse_generator(
                 yield f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
 
         except asyncio.TimeoutError:
-            yield f": keepalive\n\n"
+            yield ": keepalive\n\n"
 
     await task
 

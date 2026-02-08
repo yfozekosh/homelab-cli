@@ -1,5 +1,4 @@
 """Test configuration management endpoints"""
-import pytest
 
 def test_set_price_and_verify(api_client):
     """Test setting price and verifying it changed"""

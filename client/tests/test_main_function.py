@@ -3,14 +3,9 @@
 Unit tests for Homelab CLI Client
 """
 
-import pytest
-import json
-import sys
 import os
-import threading
-from unittest.mock import Mock, patch, mock_open, MagicMock
+from unittest.mock import patch
 from pathlib import Path
-import requests
 
 # Import the client
 from homelab_client import HomelabClient

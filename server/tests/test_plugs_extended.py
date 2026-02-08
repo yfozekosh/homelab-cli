@@ -1,5 +1,4 @@
 """Extended plug management tests"""
-import pytest
 
 def test_list_plugs(api_client):
     response = api_client.get("/plugs")

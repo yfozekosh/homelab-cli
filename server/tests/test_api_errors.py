@@ -1,5 +1,4 @@
 """Test API error handling"""
-import pytest
 
 def test_invalid_json_body(api_client):
     import requests

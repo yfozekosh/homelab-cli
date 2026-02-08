@@ -1,6 +1,5 @@
 """Tests for bot utility functions"""
 
-import pytest
 from server.bot.main import escape_markdown_v2
 
 
