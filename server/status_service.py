@@ -4,7 +4,7 @@ Status Service - Aggregates status information for all devices
 
 import logging
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 from .config import Config
 from .plug_service import PlugService
 from .server_service import ServerService

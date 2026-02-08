@@ -16,6 +16,7 @@ from telegram.ext import (
 )
 
 from ..dependencies import get_service_container
+from ..event_service import EventService
 from .handlers import BotHandlers
 
 # Configure logging
@@ -58,6 +59,68 @@ class HomelabBot:
         # Build application
         self.app = Application.builder().token(self.token).build()
         self._setup_handlers()
+        self._setup_event_listeners()
+
+    def _setup_event_listeners(self):
+        """Setup event listeners for notifications"""
+        EventService.add_listener("deployment.started", self._on_deployment_started)
+        EventService.add_listener("deployment.completed", self._on_deployment_completed)
+        EventService.add_listener("deployment.failed", self._on_deployment_failed)
+        EventService.add_listener("server.status_change", self._on_server_status_change)
+
+    async def _on_deployment_started(self, data: dict):
+        """Handle deployment started event"""
+        message = "🚀 *Deployment Started*\n\n"
+        if data.get("commit"):
+            message += f"📝 Commit: `{data['commit'][:7]}`\n"
+        if data.get("branch"):
+            message += f"🌿 Branch: {data['branch']}\n"
+        message += "\nDeploying updates..."
+        await self.broadcast_message(message)
+
+    async def _on_deployment_completed(self, data: dict):
+        """Handle deployment completed event"""
+        message = "✅ *Deployment Completed*\n\n"
+        if data.get("duration"):
+            message += f"⏱️ Duration: {data['duration']}\n"
+        message += "\nBot restarted successfully!"
+        await self.broadcast_message(message)
+
+    async def _on_deployment_failed(self, data: dict):
+        """Handle deployment failed event"""
+        message = "❌ *Deployment Failed*\n\n"
+        if data.get("error"):
+            message += f"Error: {data['error']}\n"
+        await self.broadcast_message(message)
+
+    async def _on_server_status_change(self, data: dict):
+        """Handle server status change event"""
+        server_name = data.get("server", "Unknown")
+        old_status = data.get("old_status", "unknown")
+        new_status = data.get("new_status", "unknown")
+        
+        icon = "🟢" if new_status == "online" else "🔴"
+        message = f"{icon} *Server Status Change*\n\n"
+        message += f"Server: *{server_name}*\n"
+        message += f"Status: {old_status} → {new_status}"
+        await self.broadcast_message(message)
+
+    async def broadcast_message(self, message: str, parse_mode: str = "Markdown"):
+        """Send a message to all allowed users"""
+        if not self.allowed_users:
+            logger.warning("No allowed users configured for broadcast")
+            return
+        
+        for user_id in self.allowed_users:
+            try:
+                await self.app.bot.send_message(
+                    chat_id=user_id,
+                    text=message,
+                    parse_mode=parse_mode
+                )
+                logger.debug(f"Broadcast message sent to {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to send broadcast to {user_id}: {e}")
 
     def _setup_handlers(self):
         """Setup command and callback handlers"""

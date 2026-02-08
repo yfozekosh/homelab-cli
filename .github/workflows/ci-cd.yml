@@ -144,6 +144,17 @@ jobs:
           sleep 2
           sudo wg show
 
+      - name: Notify deployment started
+        env:
+          API_URL: ${{ secrets.HOMELAB_API_URL }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -X POST "${API_URL}/events/deployment.started" \
+            -H "X-API-Key: ${API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"commit\":\"${{ github.sha }}\",\"branch\":\"${{ github.ref_name }}\",\"workflow\":\"${{ github.workflow }}\"}" \
+            || echo "Failed to send deployment notification"
+
       - name: Setup SSH key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.RPI_SSH_PRIVATE_KEY }}

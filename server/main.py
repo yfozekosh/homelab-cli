@@ -13,11 +13,6 @@ from fastapi import FastAPI, HTTPException, Depends, Security, status
 from fastapi.security import APIKeyHeader
 from fastapi.responses import StreamingResponse
 
-from .config import Config
-from .plug_service import PlugService
-from .server_service import ServerService
-from .power_service import PowerControlService
-from .status_service import StatusService
 from .schemas import (
     PlugCreate,
     PlugRemove,
@@ -36,6 +31,7 @@ from .dependencies import (
     ServerServiceDep,
     PowerServiceDep,
     StatusServiceDep,
+    EventServiceDep,
 )
 
 # Setup logging
@@ -403,6 +399,27 @@ async def get_electricity_price(config: ConfigDep):
     """Get current electricity price per kWh"""
     price = config.get_electricity_price()
     return {"price": price}
+
+@app.get("/alerts/notify-deploy-stage", dependencies=[Depends(verify_api_key)])
+async def notify_deploy_stage(stage: str, event_service: EventServiceDep):
+    """Notify about deployment stage (for alert testing)"""
+    try:
+        await event_service.emit("deploy_stage", {"stage": stage})
+        return {"message": f"Deployment stage '{stage}' notification sent"}
+    except Exception as e:
+        logger.error(f"Failed to send deployment stage notification: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/events/{event_name}", dependencies=[Depends(verify_api_key)])
+async def emit_event(event_name: str, data: dict, event_service: EventServiceDep):
+    """Emit a custom event"""
+    try:
+        await event_service.emit(event_name, data)
+        return {"message": f"Event '{event_name}' emitted successfully"}
+    except Exception as e:
+        logger.error(f"Failed to emit event {event_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
