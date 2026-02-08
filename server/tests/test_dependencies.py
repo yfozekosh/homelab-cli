@@ -15,12 +15,14 @@ from server.dependencies import (
     get_server_service,
     get_power_service,
     get_status_service,
+    get_event_service,
 )
 from server.config import Config
 from server.plug_service import PlugService
 from server.server_service import ServerService
 from server.power_service import PowerControlService
 from server.status_service import StatusService
+from server.event_service import EventService
 
 
 @pytest.fixture
@@ -78,6 +80,7 @@ class TestServiceContainer:
         assert isinstance(container.server_service, ServerService)
         assert isinstance(container.power_service, PowerControlService)
         assert isinstance(container.status_service, StatusService)
+        assert isinstance(container.event_service, EventService)
 
     def test_reset_clears_instance(self, mock_env, reset_container):
         """Reset clears the singleton instance"""
@@ -139,3 +142,10 @@ class TestDependencyGetters:
         service = get_status_service(container)
         assert isinstance(service, StatusService)
         assert service is container.status_service
+
+    def test_get_event_service(self, mock_env, reset_container):
+        """get_event_service returns EventService instance"""
+        container = get_service_container()
+        service = get_event_service(container)
+        assert isinstance(service, EventService)
+        assert service is container.event_service
