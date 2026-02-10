@@ -69,7 +69,7 @@ class PowerControlService:
         while time.time() - start < duration:
             passed = int(time.time() - start)
 
-            if self.server_service.ping(server["hostname"]):
+            if await self.server_service.ping_async(server["hostname"]):
                 log_callback("Server responding to ping!")
                 return True
 
@@ -96,7 +96,7 @@ class PowerControlService:
 
         log("Sending shutdown command...")
         try:
-            self.server_service.shutdown(server["hostname"])
+            await self.server_service.shutdown_async(server["hostname"])
             log("Shutdown command sent")
         except Exception as e:
             log(f"Failed to send shutdown: {e}")

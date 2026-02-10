@@ -129,7 +129,7 @@ class BotHandlers:
 
         keyboard = []
         for name, server in servers.items():
-            online = self.server_service.ping(server["hostname"])
+            online = await self.server_service.ping_async(server["hostname"])
             status = "🟢" if online else "🔴"
             keyboard.append(
                 [
@@ -408,7 +408,7 @@ class BotHandlers:
             # Fallback to simple ping check
             servers_status = []
             for name, server in servers.items():
-                online = self.server_service.ping(server["hostname"])
+                online = await self.server_service.ping_async(server["hostname"])
                 servers_status.append({"name": name, "online": online})
             summary_text = format_servers_summary(servers_status)
 
@@ -579,9 +579,9 @@ class BotHandlers:
         except Exception as e:
             logger.error(f"Failed to get server details: {e}")
             # Fallback to basic info
-            online = self.server_service.ping(server_data["hostname"])
+            online = await self.server_service.ping_async(server_data["hostname"])
             status = "🟢 Online" if online else "🔴 Offline"
-            ip = self.server_service.resolve_hostname(server_data["hostname"])
+            ip = await self.server_service.resolve_hostname_async(server_data["hostname"])
 
             text = (
                 f"🖥️ *{server_name}*\n\n"

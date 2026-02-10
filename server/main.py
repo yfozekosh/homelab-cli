@@ -237,8 +237,8 @@ async def list_servers(config: ConfigDep, server_service: ServerServiceDep):
     for name, server in servers.items():
         result[name] = {
             **server,
-            "ip": server_service.resolve_hostname(server["hostname"]),
-            "online": server_service.ping(server["hostname"]),
+            "ip": await server_service.resolve_hostname_async(server["hostname"]),
+            "online": await server_service.ping_async(server["hostname"]),
         }
 
     return {"servers": result}
@@ -262,12 +262,12 @@ async def ssh_healthcheck(config: ConfigDep, server_service: ServerServiceDep):
 
         try:
             # Test SSH connectivity
-            ssh_ok = server_service.test_ssh_connection(hostname)
+            ssh_ok = await server_service.test_ssh_connection_async(hostname)
             result["ssh_works"] = ssh_ok
 
             if ssh_ok:
                 # Test sudo permissions
-                sudo_ok = server_service.test_sudo_poweroff(hostname)
+                sudo_ok = await server_service.test_sudo_poweroff_async(hostname)
                 result["sudo_works"] = sudo_ok
 
         except Exception as e:
@@ -319,8 +319,8 @@ async def get_server(name: str, config: ConfigDep, server_service: ServerService
     return {
         "name": name,
         **server,
-        "ip": server_service.resolve_hostname(server["hostname"]),
-        "online": server_service.ping(server["hostname"]),
+        "ip": await server_service.resolve_hostname_async(server["hostname"]),
+        "online": await server_service.ping_async(server["hostname"]),
     }
 
 

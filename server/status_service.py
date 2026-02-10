@@ -91,7 +91,7 @@ class StatusService:
     async def get_server_status(self, name: str, server_data: Dict) -> Dict:
         """Get detailed status for a single server"""
         # Check if server is online
-        online = self.server_service.ping(server_data["hostname"])
+        online = await self.server_service.ping_async(server_data["hostname"])
 
         # Update state tracking
         self.config.update_server_state(name, online)
@@ -105,7 +105,7 @@ class StatusService:
             "mac": server_data.get("mac", ""),
             "plug": server_data.get("plug"),
             "online": online,
-            "ip": self.server_service.resolve_hostname(server_data["hostname"]),
+            "ip": await self.server_service.resolve_hostname_async(server_data["hostname"]),
         }
 
         # Add uptime/downtime info

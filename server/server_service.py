@@ -6,6 +6,7 @@ import subprocess
 import socket
 import logging
 import os
+import asyncio
 from wakeonlan import send_magic_packet
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,26 @@ class ServerService:
         except Exception as e:
             logger.debug(f"Ping failed: {e}")
             return False
+
+    async def ping_async(self, hostname: str, timeout: int = 1) -> bool:
+        """Async wrapper for ping() to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.ping, hostname, timeout)
+
+    async def resolve_hostname_async(self, hostname: str) -> str:
+        """Async wrapper for resolve_hostname() to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.resolve_hostname, hostname)
+
+    async def shutdown_async(self, hostname: str):
+        """Async wrapper for shutdown() to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.shutdown, hostname)
+
+    async def test_ssh_connection_async(self, hostname: str) -> bool:
+        """Async wrapper for test_ssh_connection() to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.test_ssh_connection, hostname)
+
+    async def test_sudo_poweroff_async(self, hostname: str) -> bool:
+        """Async wrapper for test_sudo_poweroff() to avoid blocking the event loop."""
+        return await asyncio.to_thread(self.test_sudo_poweroff, hostname)
 
     def send_wol(self, mac: str):
         """Send Wake-on-LAN packet"""
