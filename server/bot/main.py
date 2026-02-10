@@ -5,6 +5,7 @@ Telegram Bot for Homelab Management
 import os
 import logging
 import asyncio
+import re
 from typing import List
 
 from telegram.ext import (
@@ -24,6 +25,17 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def escape_markdown_v2(text: str) -> str:
+    """Escape Telegram MarkdownV2 special characters."""
+    if not text:
+        return ""
+
+    # Escape backslash first to avoid interfering with later substitutions.
+    text = text.replace("\\", "\\\\")
+
+    return re.sub(r"([_*\[\]()~`>#+\-=|{}.!])", r"\\\1", text)
 
 
 class HomelabBot:
