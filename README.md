@@ -1,507 +1,219 @@
-# Homelab Management System
+# Homelab Management (homelab-cli)
 
-A complete server-client architecture for managing Tapo smart plugs and homelab servers with power monitoring, Wake-on-LAN, and remote shutdown capabilities.
+Homelab Management is a small server + CLI stack for managing homelab machines and Tapo smart plugs on a local network. It provides a FastAPI REST API used by a Python CLI client and an optional Telegram bot for interactive control.
 
-## 🏗️ Architecture
+## What this repository contains
 
-- **Server**: FastAPI REST API + Telegram Bot (runs in Docker)
-- **Client**: Lightweight Python CLI tool
-- **Telegram Bot**: Full-featured bot with inline keyboard buttons
+- **Server** (`server/`): FastAPI application that exposes the REST API.
+- **Telegram bot** (`server/telegram_bot.py`, `server/bot/`): Optional bot that talks to the same services as the API.
+- **CLI client** (`client/`): Python command-line tool (`lab`) that calls the API.
+- **Docker deployment** (`docker/`): Dockerfile and compose file for running the server locally.
 
-## ✨ Features
+## Capabilities
 
-- 🔌 **Smart Plug Management**: Control Tapo P110 smart plugs
-- 🖥️ **Server Management**: Wake-on-LAN, shutdown, and ping monitoring
-- ⚡ **Power Monitoring**: Real-time power consumption tracking during boot/shutdown
-- 🤖 **Telegram Bot**: Interactive bot with button-based UI
-- 🔐 **Security**: API key authentication & Telegram user whitelist
-- 🐳 **Docker**: Easy deployment with docker-compose
+- Manage Tapo smart plugs (add/remove/list, switch on/off, read power metrics where supported).
+- Manage servers (inventory, ping checks, Wake-on-LAN, and remote shutdown over SSH).
+- Show a consolidated status view, including power and energy reporting.
+- Optional Telegram bot with a button-driven menu (restricted by a user ID allowlist).
 
-## 📋 Prerequisites
+## Prerequisites
 
-- Docker and docker-compose (for server)
-- Python 3.7+ (for CLI client)
-- Tapo smart plugs (P110 or compatible)
-- Telegram account (optional, for bot)
+- Docker Engine and Docker Compose (for running the server locally)
+- Python 3.7+ and pip (for the CLI client)
+- Network reachability from the server host to:
+  - Tapo devices on your LAN
+  - Your target servers (for ping/WOL and optional SSH shutdown)
 
-## 🚀 Quick Start
+## Local deployment with Docker
 
-### 1. Server Deployment
+The recommended way to run the server is via Docker Compose.
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd homelab-cli
+1. Clone the repository:
 
-# Configure environment
-cd docker
-cp .env.example .env
-nano .env  # Edit with your credentials
-
-# Start the server
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f
-```
-
-### 2. Client Installation
-
-```bash
-# Run the installation script
-cd ../client
-./install.sh
-
-# Or manually
-pip3 install --user requests
-cp lab.py ~/.local/bin/lab
-chmod +x ~/.local/bin/lab
-
-# Configure
-lab config set-server http://your-server:8000
-lab config set-key your-api-key
-lab config test
-```
-
-**Note:** The install script detects existing configuration during reinstalls. Just press Enter to keep your current settings, or type 'n' to reconfigure.
-
-### 3. Telegram Bot Setup
-
-1. Create a bot with [@BotFather](https://t.me/botfather)
-2. Get your Telegram user ID from [@userinfobot](https://t.me/userinfobot)
-3. Add credentials to `.env` file:
+   ```bash
+   git clone <repository-url>
+   cd homelab-cli
    ```
-   TELEGRAM_BOT_TOKEN=123456789:ABCdef...
-   TELEGRAM_USER_IDS=123456789,987654321
+
+2. Configure environment variables:
+
+   ```bash
+   cd docker
+   cp .env.example .env
+   ${EDITOR:-nano} .env
    ```
-4. Restart the server: `docker-compose restart`
-5. Start the bot: `/start` in Telegram
 
-## 📖 Usage
+   Minimum required values:
 
-### CLI Commands
+   - `TAPO_USERNAME`
+   - `TAPO_PASSWORD`
+   - `API_KEY`
 
-#### Configuration
-```bash
-lab config set-server <url>   # Set server URL
-lab config set-key <key>      # Set API key
-lab config test               # Test connection
-```
+   Optional (Telegram bot):
 
-#### Plug Management
-```bash
-lab plug list                 # List all plugs
-lab plug add <name> <ip>      # Add a plug
-lab plug edit <name> <ip>     # Edit plug IP
-lab plug remove <name>        # Remove a plug
-```
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_USER_IDS`
 
-#### Server Management
-```bash
-lab server list                              # List all servers
-lab server add <name> <hostname> [mac] [plug]  # Add a server (MAC optional)
-lab server edit <name> [--hostname H] [--mac M] [--plug P]  # Edit server
-lab server remove <name>                     # Remove a server
-```
+3. Start the service:
 
-#### Power Control
-```bash
-lab on <server>               # Power on a server
-lab off <server>              # Power off a server
-lab status                    # Show comprehensive status of all devices
-lab status -f                 # Live monitoring with in-place updates (every 5s)
-lab status -f 0.5             # Fast refresh every 500ms
-lab status -f 60              # Slow refresh every minute
-```
+   ```bash
+   # Docker Compose v2
+   docker compose up -d --build
 
-**Note:** Live monitoring (`-f`) uses efficient in-place updates - only changed data is redrawn, no screen clearing or flicker. Press **'q'** or **Ctrl+C** to exit.
+   # If your environment still uses the v1 plugin
+   # docker-compose up -d --build
+   ```
 
-#### Settings
-```bash
-lab set price 0.2721          # Set electricity price per kWh (EUR or USD)
-lab get price                 # Get current electricity price
-```
+4. Verify it is running:
 
-**Note:** Once a price is set, the status command will automatically calculate and display energy costs alongside power consumption metrics.
+   ```bash
+   curl http://localhost:8000/health
+   ```
 
-### Telegram Bot
+5. View logs:
 
-1. **Start the bot**: `/start` or `/menu`
-2. **View servers**: Click "🖥️ Servers"
-3. **Select a server**: Click on server name
-4. **Power control**: Use "⚡ Power On" or "🔴 Power Off" buttons
-5. **View plugs**: Click "🔌 Plugs"
+   ```bash
+   docker compose logs -f
+   ```
 
-The bot provides real-time updates during power operations!
+### Notes on networking
 
-**Note**: If a server doesn't have a MAC address configured, the bot will show a warning and direct you to use the CLI to add it.
+The compose file uses `network_mode: host` so the container can reach LAN devices directly (smart plugs, WOL broadcast, SSH to servers). If you change this to bridge networking you will need to map ports and ensure the container can still reach your LAN.
 
-## 💡 Usage Examples
+### Persistent configuration
 
-### Initial Setup
-```bash
-# Add a plug
-lab plug add office-plug 192.168.1.50
+The server stores its configuration in a JSON file mounted from `docker/data/`:
 
-# Add a server without MAC (configure later)
-lab server add workstation workstation.local
+- Host path: `docker/data/config.json`
+- Container path: `/app/data/config.json` (via `CONFIG_PATH`)
 
-# Add MAC address later
-lab server edit workstation --mac AA:BB:CC:DD:EE:FF
+## Install the CLI client
 
-# Associate with a plug
-lab server edit workstation --plug office-plug
-```
+The client is a lightweight Python CLI called `lab`.
 
-### Changing Configuration
-```bash
-# Change plug IP address
-lab plug edit office-plug 192.168.1.55
-
-# Update server hostname
-lab server edit workstation --hostname ws.local
-
-# Change associated plug
-lab server edit workstation --plug new-plug
-```
-
-### Complete Server Setup
-```bash
-# Add server with all details
-lab server add testserver test.local AA:BB:CC:DD:EE:FF lab-plug
-
-# Or add incrementally
-lab server add testserver test.local
-lab server edit testserver --mac AA:BB:CC:DD:EE:FF
-lab server edit testserver --plug lab-plug
-```
-
-## 🔧 Configuration
-
-### Server Configuration
-
-Edit `docker/.env`:
-
-```bash
-# Tapo Credentials
-TAPO_USERNAME=your_email@example.com
-TAPO_PASSWORD=your_password
-
-# Telegram Bot (optional)
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_USER_IDS=123456789,987654321  # Comma-separated
-
-# API Security
-API_KEY=your-secure-api-key
-```
-
-### Client Configuration
-
-Configuration is stored in `~/.config/homelab-client/config.json`:
-
-```json
-{
-  "server_url": "http://192.168.1.100:8000",
-  "api_key": "your-api-key"
-}
-```
-
-Or use environment variables:
-```bash
-export HOMELAB_SERVER_URL=http://192.168.1.100:8000
-export HOMELAB_API_KEY=your-api-key
-```
-
-## 🐳 Docker Configuration
-
-### Network Mode
-
-The server uses `host` network mode to access LAN devices (smart plugs, servers). If you need to change this:
-
-1. Switch to bridge mode in `docker-compose.yml`
-2. Map port 8000
-3. Ensure the container can reach your LAN devices
-
-### Persistent Data
-
-Server configuration is stored in `docker/data/config.json` (mounted as volume).
-
-### Health Checks
-
-The container includes a health check endpoint at `/health`.
-
-## 🔒 Security
-
-### API Key Authentication
-
-All API endpoints require the `X-API-Key` header. Set a strong API key in `.env`.
-
-### Telegram User Whitelist
-
-Only users with IDs listed in `TELEGRAM_USER_IDS` can use the bot.
-
-### SSH Key Setup
-
-For server shutdown functionality, configure SSH key authentication:
-
-```bash
-# On the server host machine
-ssh-copy-id user@target-server
-
-# Test
-ssh target-server sudo poweroff
-```
-
-Configure passwordless sudo for `poweroff`:
-```bash
-# On target server
-echo "username ALL=(ALL) NOPASSWD: /sbin/poweroff" | sudo tee /etc/sudoers.d/poweroff
-```
-
-## 📊 API Documentation
-
-Once the server is running, visit:
-- **Swagger UI**: http://your-server:8000/docs
-- **ReDoc**: http://your-server:8000/redoc
-
-## 🛠️ Development
-
-### Project Structure
-
-```
-homelab-cli/
-├── server/               # Server code
-│   ├── main.py          # FastAPI application
-│   ├── telegram_bot.py  # Telegram bot
-│   ├── config.py        # Configuration manager
-│   ├── plug_service.py  # Plug management
-│   ├── server_service.py # Server management
-│   ├── power_service.py # Power control orchestration
-│   └── requirements.txt
-├── client/              # CLI client
-│   ├── homelab_client/  # Core client package (modular)
-│   │   ├── __init__.py      # Package initialization
-│   │   ├── client.py        # Main client facade
-│   │   ├── cli.py           # CLI argument parsing
-│   │   ├── config.py        # Configuration management
-│   │   ├── api_client.py    # HTTP API client
-│   │   ├── plug_manager.py  # Plug operations
-│   │   ├── server_manager.py # Server operations
-│   │   ├── power_manager.py # Power control
-│   │   ├── price_manager.py # Electricity price
-│   │   └── status_manager.py # Status monitoring
-│   ├── lab.py           # Entry point script
-│   ├── status_display.py # Status display logic
-│   ├── install.sh       # Installation script
-│   ├── requirements.txt
-│   └── tests/           # Test suite (62 tests, 83% coverage)
-│       ├── conftest.py
-│       ├── test_*.py    # Modular test files
-│       └── README.md    # Test documentation
-├── docker/              # Docker configuration
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   ├── start.sh
-│   └── .env.example
-└── docs/                # Documentation
-```
-
-### Client Architecture
-
-The client uses a modular, multi-class architecture following SOLID principles:
-
-- **`HomelabClient`** - Main facade class that composes all managers
-- **`ConfigManager`** - Configuration file management
-- **`APIClient`** - Base HTTP client for all API communication
-- **`PlugManager`** - Smart plug CRUD operations
-- **`ServerManager`** - Server CRUD operations
-- **`PowerManager`** - Power on/off operations
-- **`PriceManager`** - Electricity price management
-- **`StatusManager`** - Status monitoring with follow mode
-
-**Benefits:**
-- Single Responsibility: Each class has one clear purpose
-- Easy Testing: Components can be tested in isolation
-- Maintainability: Changes are contained to specific modules
-- Extensibility: New features can be added without modifying existing code
-
-### Testing
-
-The client includes comprehensive unit tests with **83% coverage**.
+### Option A: Install using the provided script (recommended)
 
 ```bash
 cd client
-
-# Install test dependencies
-pip install -r requirements-test.txt
-
-# Run all tests
-pytest
-
-# Run with coverage report
-pytest --cov=. --cov-report=html
-
-# Run specific test file
-pytest tests/test_plug_operations.py -v
-
-# Run tests with verbose output
-pytest -v
-
-# View coverage report
-open htmlcov/index.html  # or xdg-open on Linux
+./install.sh
 ```
 
-**Test Statistics:**
-- **62 tests** across 15 modular files
-- **83% coverage** for client package
-- **100% pass rate**
-- **~1.75s** execution time
+The script:
 
-See [`client/tests/README.md`](client/tests/README.md) for detailed documentation.
+- Installs runtime dependencies (currently `requests`)
+- Copies `lab` and the `homelab_client` package to `~/.local/bin/`
+- Optionally prompts for server URL and API key
 
-### Running Locally (without Docker)
+Make sure `~/.local/bin` is in your `PATH`.
+
+### Option B: Manual installation
 
 ```bash
-# Install dependencies
-cd server
-pip install -r requirements.txt
+pip3 install --user requests
 
-# Set environment variables
-export TAPO_USERNAME=...
-export TAPO_PASSWORD=...
-export API_KEY=...
+mkdir -p ~/.local/bin
+cp client/lab.py ~/.local/bin/lab
+chmod +x ~/.local/bin/lab
 
-# Run server
-python -m uvicorn main:app --reload
-
-# Run bot (in another terminal)
-python telegram_bot.py
+# Ensure ~/.local/bin is in PATH (bash example)
+# echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+# source ~/.bashrc
 ```
 
-## 🐛 Troubleshooting
-
-### Cannot connect to server
-- Check server is running: `docker-compose ps`
-- Verify firewall allows port 8000
-- Test with curl: `curl http://server:8000/health`
-
-### Telegram bot not responding
-- Verify `TELEGRAM_BOT_TOKEN` is correct
-- Check your user ID is in `TELEGRAM_USER_IDS`
-- View logs: `docker-compose logs -f`
-
-### Smart plug not responding
-- Verify plug IP address is correct
-- Check Tapo credentials in `.env`
-- Ensure server can reach plug on LAN
-
-### Server won't boot with WOL
-- Verify MAC address is correct
-- Enable WOL in server BIOS
-- Check network card supports WOL
-
-### SSH shutdown fails
-- Verify SSH key authentication is working
-- Check passwordless sudo is configured
-- Test manually: `ssh server sudo poweroff`
-
-## 📚 Documentation
-
-- [Server Deployment Guide](docs/SERVER_DEPLOYMENT.md)
-- [Client Installation Guide](docs/CLIENT_INSTALLATION.md)
-
-## 📝 License
-
-See LICENSE file for details.
-
-## 🚀 CI/CD Pipeline
-
-The project includes automated testing and deployment via GitHub Actions.
-
-### Pipeline Stages
-
-1. **Lint** - Syntax check with ruff
-2. **Type Check** - Static analysis with pyright
-3. **Test** - Run pytest (must pass with ≥50% coverage)
-4. **Deploy** - Auto-deploy to RPI on master/main push
-
-### Setting Up Deployment
-
-Deployment connects to your home network via WireGuard VPN, then deploys via SSH.
-
-#### 1. Get WireGuard Config from Your Server
-
-If your WireGuard server generates `.conf` files for clients:
+### Configure the client
 
 ```bash
-# On your WG server, generate a new peer config
-# This will produce a file like github-actions.conf
-
-# The config file looks like:
-[Interface]
-PrivateKey = ABC123...=
-Address = 10.0.0.100/24
-
-[Peer]
-PublicKey = XYZ789...=
-Endpoint = vpn.example.com:51820
-AllowedIPs = 10.0.0.0/24, 192.168.1.0/24
+lab config set-server http://<server-ip>:8000
+lab config set-key <api-key>
+lab config test
 ```
 
-#### 2. Extract Values for GitHub Secrets
-
-From the generated `.conf` file, extract these values:
-
-| Config Line | GitHub Secret | Value |
-|-------------|---------------|-------|
-| `PrivateKey = ABC123...=` | `WG_PRIVATE_KEY` | `ABC123...=` |
-| `Address = 10.0.0.100/24` | `WG_CLIENT_IP` | `10.0.0.100` |
-| `PublicKey = XYZ789...=` | `WG_PEER_PUBLIC_KEY` | `XYZ789...=` |
-| `Endpoint = vpn.example.com:51820` | `WG_ENDPOINT` | `vpn.example.com:51820` |
-| `AllowedIPs = 10.0.0.0/24, 192.168.1.0/24` | `WG_ALLOWED_IPS` | `10.0.0.0/24,192.168.1.0/24` |
-
-#### 3. Generate SSH Deploy Key
+Client configuration is stored at `~/.config/homelab-client/config.json`. You can also use:
 
 ```bash
-# Generate dedicated key for GitHub Actions
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
-
-# Add public key to RPI
-ssh-copy-id -i deploy_key.pub pi@your-rpi-ip
-
-# Copy private key contents → RPI_SSH_PRIVATE_KEY secret
-cat deploy_key
+export HOMELAB_SERVER_URL=http://<server-ip>:8000
+export HOMELAB_API_KEY=<api-key>
 ```
 
-#### 4. Add All Secrets to GitHub
+## Example client usage
 
-Go to your repository → Settings → Secrets and variables → Actions → New repository secret
+A typical workflow looks like this:
 
-| Secret | Description |
-|--------|-------------|
-| `WG_PRIVATE_KEY` | From conf: PrivateKey value |
-| `WG_PEER_PUBLIC_KEY` | From conf: Peer's PublicKey |
-| `WG_ENDPOINT` | From conf: Endpoint (host:port) |
-| `WG_CLIENT_IP` | From conf: Address (without /24) |
-| `WG_ALLOWED_IPS` | From conf: AllowedIPs (comma-separated, no spaces) |
-| `RPI_SSH_PRIVATE_KEY` | Contents of deploy_key file |
-| `RPI_HOST` | RPI IP reachable via VPN (e.g., `192.168.1.50`) |
-| `RPI_USER` | SSH username (e.g., `pi`) |
-| `DEPLOY_PATH` | Where to deploy (e.g., `/home/pi/homelab-cli`) |
+```bash
+# Add a smart plug
+lab plug add office-plug 192.168.1.50
 
-#### 5. Verify Setup
+# Add a server (MAC is required for Wake-on-LAN)
+lab server add workstation workstation.local AA:BB:CC:DD:EE:FF office-plug
 
-Push to master/main and check the Actions tab. The deploy job should:
-1. Connect via WireGuard
-2. SSH into RPI
-3. Sync code and restart containers
+# List inventory
+lab plug list
+lab server list
 
-See [.github/CICD_SETUP.md](.github/CICD_SETUP.md) for troubleshooting.
+# Power control
+lab on workstation
+lab off workstation
 
-## 🤝 Contributing
+# Consolidated status (follow mode refreshes continuously)
+lab status
+lab status -f
 
-Contributions welcome! Please open an issue or submit a pull request.
+# Optional: set electricity price per kWh so status includes cost estimates
+lab set price 0.2721
+lab get price
+```
 
-## 📧 Support
+## Telegram bot
 
-For issues and questions, please use the GitHub issue tracker.
+The Telegram bot is optional. When enabled, it provides an interactive menu for viewing servers/plugs and running power actions.
+
+### Enable the bot
+
+1. Create a bot via `@BotFather` and copy the token.
+2. Get your Telegram numeric user ID (for example via `@userinfobot`).
+3. Set the following in `docker/.env`:
+
+   ```bash
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+   TELEGRAM_USER_IDS=123456789,987654321
+   ```
+
+4. Restart the container:
+
+   ```bash
+   cd docker
+   docker compose restart
+   ```
+
+5. Open a chat with your bot and send `/start`.
+
+### Access control
+
+The bot is restricted to the comma-separated list of user IDs in `TELEGRAM_USER_IDS`. Requests from other users are rejected.
+
+## API and security
+
+- All API endpoints require an API key via the `X-API-Key` header.
+- API docs are available when the server is running:
+  - Swagger UI: `http://<server-ip>:8000/docs`
+  - ReDoc: `http://<server-ip>:8000/redoc`
+
+## SSH-based shutdown
+
+Remote shutdown uses SSH from inside the container. The compose file mounts the host SSH directory read-only and the container startup script copies keys into place.
+
+Requirements:
+
+- Your Docker host must have working SSH access to the target machines.
+- Configure passwordless `sudo poweroff` on the target machines if required.
+- Set `SSH_USER` in `docker/.env` if the SSH username differs from the host user.
+
+## Documentation
+
+- Server deployment: `docs/SERVER_DEPLOYMENT.md`
+- Client installation: `docs/CLIENT_INSTALLATION.md`
+- Architecture notes: `docs/ARCHITECTURE.md`
+
+## License
+
+See `LICENSE`.
