@@ -78,6 +78,11 @@ class StatusService:
                 "month_energy": round(status["month_energy"], 1),
                 "month_cost": round(month_cost, 4),
                 "month_runtime": round(month_hours, 1),
+                # Previous day/month values if device or datastore provides them
+                "prev_day_energy": status.get("prev_day_energy"),
+                "prev_day_cost": round(status.get("prev_day_cost", 0), 4) if status.get("prev_day_cost") is not None else None,
+                "prev_month_energy": status.get("prev_month_energy"),
+                "prev_month_cost": round(status.get("prev_month_cost", 0), 4) if status.get("prev_month_cost") is not None else None,
             }
         except Exception as e:
             logger.error(f"Failed to get status for plug {name}: {e}")
@@ -144,6 +149,11 @@ class StatusService:
                         "today_cost": round(today_cost, 4),
                         "month_energy": round(plug_status["month_energy"], 1),
                         "month_cost": round(month_cost, 4),
+                        # Previous day/month if available
+                        "prev_day_energy": plug_status.get("prev_day_energy"),
+                        "prev_day_cost": round(plug_status.get("prev_day_cost", 0), 4) if plug_status.get("prev_day_cost") is not None else None,
+                        "prev_month_energy": plug_status.get("prev_month_energy"),
+                        "prev_month_cost": round(plug_status.get("prev_month_cost", 0), 4) if plug_status.get("prev_month_cost") is not None else None,
                         "month_runtime": plug_status.get("month_runtime", 0),  # Add runtime in minutes
                     }
                 except Exception as e:

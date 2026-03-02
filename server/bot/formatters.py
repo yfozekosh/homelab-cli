@@ -107,10 +107,24 @@ def format_status_text(status: Dict) -> str:
                     power_line += f" ({power['current_cost_per_hour']:.4f}€/h)"
                 lines.append(power_line)
 
-                lines.append(f"  Today: {power['today_energy']}Wh" +
-                            (f" ({power['today_cost']:.2f}€)" if power.get('today_cost', 0) > 0 else ""))
-                lines.append(f"  Month: {power['month_energy']}Wh" +
-                            (f" ({power['month_cost']:.2f}€)" if power.get('month_cost', 0) > 0 else ""))
+                # Inline previous day/month if available
+                today_line = f"  Today: {power['today_energy']}Wh"
+                if power.get('today_cost', 0) > 0:
+                    today_line += f" ({power['today_cost']:.2f}€)"
+                if power.get('prev_day_energy') is not None:
+                    today_line += f"  | prev: {power['prev_day_energy']}Wh"
+                    if power.get('prev_day_cost', 0) > 0:
+                        today_line += f" ({power['prev_day_cost']:.2f}€)"
+                lines.append(today_line)
+
+                month_line = f"  Month: {power['month_energy']}Wh"
+                if power.get('month_cost', 0) > 0:
+                    month_line += f" ({power['month_cost']:.2f}€)"
+                if power.get('prev_month_energy') is not None:
+                    month_line += f"  | prev: {power['prev_month_energy']}Wh"
+                    if power.get('prev_month_cost', 0) > 0:
+                        month_line += f" ({power['prev_month_cost']:.2f}€)"
+                lines.append(month_line)
 
     # Plugs section (standalone plugs not attached to servers)
     standalone_plugs = [p for p in status.get("plugs", [])
@@ -132,10 +146,23 @@ def format_status_text(status: Dict) -> str:
                 power_line += f" ({plug['current_cost_per_hour']:.4f}€/h)"
             lines.append(power_line)
 
-            lines.append(f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)" +
-                        (f" - {plug['today_cost']:.2f}€" if plug.get('today_cost', 0) > 0 else ""))
-            lines.append(f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)" +
-                        (f" - {plug['month_cost']:.2f}€" if plug.get('month_cost', 0) > 0 else ""))
+            today_line = f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
+            if plug.get('today_cost', 0) > 0:
+                today_line += f" - {plug['today_cost']:.2f}€"
+            if plug.get('prev_day_energy') is not None:
+                today_line += f"  | prev: {plug['prev_day_energy']}Wh"
+                if plug.get('prev_day_cost', 0) > 0:
+                    today_line += f" ({plug['prev_day_cost']:.2f}€)"
+            lines.append(today_line)
+
+            month_line = f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
+            if plug.get('month_cost', 0) > 0:
+                month_line += f" - {plug['month_cost']:.2f}€"
+            if plug.get('prev_month_energy') is not None:
+                month_line += f"  | prev: {plug['prev_month_energy']}Wh"
+                if plug.get('prev_month_cost', 0) > 0:
+                    month_line += f" ({plug['prev_month_cost']:.2f}€)"
+            lines.append(month_line)
 
     return "\n".join(lines)
 
@@ -182,10 +209,23 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
             power_line += f" ({power['current_cost_per_hour']:.4f}€/h)"
         lines.append(power_line)
 
-        lines.append(f"  Today: {power['today_energy']}Wh" +
-                    (f" ({power['today_cost']:.2f}€)" if power.get('today_cost', 0) > 0 else ""))
-        lines.append(f"  Month: {power['month_energy']}Wh" +
-                    (f" ({power['month_cost']:.2f}€)" if power.get('month_cost', 0) > 0 else ""))
+        today_line = f"  Today: {power['today_energy']}Wh"
+        if power.get('today_cost', 0) > 0:
+            today_line += f" ({power['today_cost']:.2f}€)"
+        if power.get('prev_day_energy') is not None:
+            today_line += f"  | prev: {power['prev_day_energy']}Wh"
+            if power.get('prev_day_cost', 0) > 0:
+                today_line += f" ({power['prev_day_cost']:.2f}€)"
+        lines.append(today_line)
+
+        month_line = f"  Month: {power['month_energy']}Wh"
+        if power.get('month_cost', 0) > 0:
+            month_line += f" ({power['month_cost']:.2f}€)"
+        if power.get('prev_month_energy') is not None:
+            month_line += f"  | prev: {power['prev_month_energy']}Wh"
+            if power.get('prev_month_cost', 0) > 0:
+                month_line += f" ({power['prev_month_cost']:.2f}€)"
+        lines.append(month_line)
 
     return "\n".join(lines)
 
@@ -213,10 +253,22 @@ def format_plug_status_text(plug: Dict) -> str:
         power_line += f" ({plug['current_cost_per_hour']:.4f}€/h)"
     lines.append(power_line)
 
-    lines.append(f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)" +
-                (f" - {plug['today_cost']:.2f}€" if plug.get('today_cost', 0) > 0 else ""))
-    
-    lines.append(f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)" +
-                (f" - {plug['month_cost']:.2f}€" if plug.get('month_cost', 0) > 0 else ""))
+    today_line = f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
+    if plug.get('today_cost', 0) > 0:
+        today_line += f" - {plug['today_cost']:.2f}€"
+    if plug.get('prev_day_energy') is not None:
+        today_line += f"  | prev: {plug['prev_day_energy']}Wh"
+        if plug.get('prev_day_cost', 0) > 0:
+            today_line += f" ({plug['prev_day_cost']:.2f}€)"
+    lines.append(today_line)
+
+    month_line = f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
+    if plug.get('month_cost', 0) > 0:
+        month_line += f" - {plug['month_cost']:.2f}€"
+    if plug.get('prev_month_energy') is not None:
+        month_line += f"  | prev: {plug['prev_month_energy']}Wh"
+        if plug.get('prev_month_cost', 0) > 0:
+            month_line += f" ({plug['prev_month_cost']:.2f}€)"
+    lines.append(month_line)
 
     return "\n".join(lines)

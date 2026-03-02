@@ -87,10 +87,18 @@ class StatusDisplay:
                 lines.append(power_line)
 
                 energy_wh = f"{power['today_energy']}Wh"
+                # Include previous day if available (inline)
                 energy_line = f"     Today: {self._c('YELLOW', energy_wh, use_color)}"
                 if show_costs and power.get("today_cost", 0) > 0:
                     cost = f"{power['today_cost']}€"
                     energy_line += f" ({self._c('MAGENTA', cost, use_color)})"
+                if power.get("prev_day_energy") is not None:
+                    prev_wh = f"{power['prev_day_energy']}Wh"
+                    prev_part = f" prev: {self._c('CYAN', prev_wh, use_color)}"
+                    if show_costs and power.get("prev_day_cost", 0) > 0:
+                        prev_cost = f"{power['prev_day_cost']}€"
+                        prev_part += f" ({self._c('MAGENTA', prev_cost, use_color)})"
+                    energy_line += f"  |{prev_part}"
                 lines.append(energy_line)
 
                 month_wh = f"{power['month_energy']}Wh"
@@ -98,6 +106,15 @@ class StatusDisplay:
                 if show_costs and power.get("month_cost", 0) > 0:
                     cost = f"{power['month_cost']}€"
                     month_line += f" ({self._c('MAGENTA', cost, use_color)})"
+
+                # Include previous month inline if available
+                if power.get("prev_month_energy") is not None:
+                    prev_m_wh = f"{power['prev_month_energy']}Wh"
+                    prev_m_part = f" prev: {self._c('CYAN', prev_m_wh, use_color)}"
+                    if show_costs and power.get("prev_month_cost", 0) > 0:
+                        prev_m_cost = f"{power['prev_month_cost']}€"
+                        prev_m_part += f" ({self._c('MAGENTA', prev_m_cost, use_color)})"
+                    month_line += f"  |{prev_m_part}"
                 lines.append(month_line)
 
         return lines
@@ -155,6 +172,14 @@ class StatusDisplay:
             if show_costs and plug.get("today_cost", 0) > 0:
                 cost = f"{plug['today_cost']}€"
                 today_line += f" - {self._c('MAGENTA', cost, use_color)}"
+            # Inline previous day if available
+            if plug.get("prev_day_energy") is not None:
+                prev_wh = f"{plug['prev_day_energy']}Wh"
+                prev_part = f" prev: {self._c('CYAN', prev_wh, use_color)}"
+                if show_costs and plug.get("prev_day_cost", 0) > 0:
+                    prev_cost = f"{plug['prev_day_cost']}€"
+                    prev_part += f" ({self._c('MAGENTA', prev_cost, use_color)})"
+                today_line += f"  |{prev_part}"
             lines.append(today_line)
 
             month_wh = f"{plug['month_energy']}Wh"
@@ -162,6 +187,14 @@ class StatusDisplay:
             if show_costs and plug.get("month_cost", 0) > 0:
                 cost = f"{plug['month_cost']}€"
                 month_line += f" - {self._c('MAGENTA', cost, use_color)}"
+            # Inline previous month if available
+            if plug.get("prev_month_energy") is not None:
+                prev_m_wh = f"{plug['prev_month_energy']}Wh"
+                prev_m_part = f" prev: {self._c('CYAN', prev_m_wh, use_color)}"
+                if show_costs and plug.get("prev_month_cost", 0) > 0:
+                    prev_m_cost = f"{plug['prev_month_cost']}€"
+                    prev_m_part += f" ({self._c('MAGENTA', prev_m_cost, use_color)})"
+                month_line += f"  |{prev_m_part}"
             lines.append(month_line)
 
         return lines
