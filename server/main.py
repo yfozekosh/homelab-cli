@@ -33,11 +33,10 @@ from .dependencies import (
     StatusServiceDep,
     EventServiceDep,
 )
+from .logging_config import setup_logging
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Setup logging (must happen before any getLogger calls)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # API Key Security
@@ -106,15 +105,19 @@ async def create_sse_generator(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - initializes services via dependency container"""
-    logger.info("Starting Homelab Server...")
+    logger.info("Homelab Server starting up...")
 
     # Initialize service container (triggers service creation)
     container = get_service_container()
-    logger.info("Services initialized successfully")
+    logger.info("Service container initialized")
+    logger.info("Config path: %s", container.config.config_path)
+    logger.info("Plugs configured: %d, Servers configured: %d",
+                len(container.config.list_plugs()),
+                len(container.config.list_servers()))
 
     yield
 
-    logger.info("Shutting down Homelab Server...")
+    logger.info("Homelab Server shutting down...")
     # Reset container on shutdown (allows clean restart in tests)
     ServiceContainer.reset()
 
@@ -424,5 +427,33 @@ async def emit_event(event_name: str, data: dict, event_service: EventServiceDep
 
 if __name__ == "__main__":
     import uvicorn
+    from .logging_config import LOG_FORMAT
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_config={
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "()": "uvicorn.logging.DefaultFormatter",
+                    "fmt": LOG_FORMAT,
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                },
+            },
+            "handlers": {
+                "default": {
+                    "formatter": "default",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                },
+            },
+            "loggers": {
+                "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+                "uvicorn.error": {"level": "INFO"},
+                "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
+            },
+        },
+    )

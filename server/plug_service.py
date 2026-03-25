@@ -5,6 +5,7 @@ Plug Management Service
 import os
 import logging
 import asyncio
+import time
 from tapo import ApiClient
 
 logger = logging.getLogger(__name__)
@@ -104,17 +105,35 @@ class PlugService:
 
     async def get_full_status(self, ip: str) -> dict:
         """Get complete status including energy data"""
+        t0 = time.monotonic()
         try:
             device = await self.get_client(ip, timeout=1.5)
-            info = await asyncio.wait_for(device.get_device_info(), timeout=1.5)
 
-            # Get energy data
-            energy_data = await self.get_energy_usage(ip)
+            # Get device info and energy data in parallel from same connection
+            info_task = asyncio.wait_for(device.get_device_info(), timeout=1.5)
+            power_task = asyncio.wait_for(device.get_current_power(), timeout=1.5)
+            energy_task = asyncio.wait_for(device.get_energy_usage(), timeout=1.5)
 
-            return {"on": info.device_on, "signal_level": info.signal_level, **energy_data}
+            info, current, energy = await asyncio.gather(info_task, power_task, energy_task)
+
+            elapsed = time.monotonic() - t0
+            logger.debug(
+                "get_full_status %s: done in %.2fs (power=%.1fW, on=%s)",
+                ip, elapsed, current.current_power, info.device_on,
+            )
+
+            return {
+                "on": info.device_on,
+                "signal_level": info.signal_level,
+                "current_power": current.current_power,
+                "today_runtime": energy.today_runtime,
+                "today_energy": energy.today_energy,
+                "month_runtime": energy.month_runtime,
+                "month_energy": energy.month_energy,
+            }
         except (asyncio.TimeoutError, Exception) as e:
-            logger.warning(f"Failed to get full status for {ip}: {e}")
-            # Return offline status
+            elapsed = time.monotonic() - t0
+            logger.warning("get_full_status %s: failed after %.2fs: %s", ip, elapsed, e)
             return {
                 "on": False,
                 "signal_level": 0,

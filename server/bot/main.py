@@ -5,6 +5,7 @@ Telegram Bot for Homelab Management
 import os
 import logging
 import asyncio
+import time
 import re
 from typing import List
 
@@ -18,12 +19,11 @@ from telegram.ext import (
 
 from ..dependencies import get_service_container
 from ..event_service import EventService
+from ..logging_config import setup_logging
 from .handlers import BotHandlers
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Setup logging (must happen before any getLogger calls)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -153,11 +153,16 @@ class HomelabBot:
 
     async def run(self):
         """Run the bot"""
-        logger.info("Starting Telegram bot...")
+        logger.info("Initializing Telegram bot...")
+        logger.info("Allowed users: %d configured", len(self.allowed_users))
         await self.app.initialize()
+        logger.info("Telegram bot application initialized")
         await self.app.start()
         if self.app.updater:
             await self.app.updater.start_polling()
+            logger.info("Telegram bot polling started")
+        else:
+            logger.warning("Telegram bot updater not available")
 
         # Send startup message to allowed users
         if self.allowed_users:

@@ -3,7 +3,9 @@ Status Service - Aggregates status information for all devices
 """
 
 import logging
-from datetime import datetime
+import asyncio
+import time
+from datetime import datetime, timezone
 from typing import Dict
 from .config import Config
 from .plug_service import PlugService
@@ -26,7 +28,7 @@ class StatusService:
         """Format duration from ISO timestamp to human readable"""
         try:
             start = datetime.fromisoformat(start_iso)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             delta = now - start
 
             days = delta.days
@@ -48,6 +50,7 @@ class StatusService:
 
     async def get_plug_status(self, name: str, plug_data: Dict) -> Dict:
         """Get detailed status for a single plug"""
+        t0 = time.monotonic()
         try:
             status = await self.plug_service.get_full_status(plug_data["ip"])
 
@@ -63,6 +66,12 @@ class StatusService:
             month_cost = (status["month_energy"] / 1000) * price if price > 0 else 0
             current_cost_per_hour = (
                 (status["current_power"] / 1000) * price if price > 0 else 0
+            )
+
+            elapsed = time.monotonic() - t0
+            logger.debug(
+                "get_plug_status %s: done in %.2fs (power=%.1fW, on=%s)",
+                name, elapsed, status["current_power"], status["on"],
             )
 
             return {
@@ -85,7 +94,8 @@ class StatusService:
                 "prev_month_cost": round(status.get("prev_month_cost", 0), 4) if status.get("prev_month_cost") is not None else None,
             }
         except Exception as e:
-            logger.error(f"Failed to get status for plug {name}: {e}")
+            elapsed = time.monotonic() - t0
+            logger.error("get_plug_status %s: failed after %.2fs: %s", name, elapsed, e)
             return {
                 "name": name,
                 "ip": plug_data["ip"],
@@ -95,8 +105,13 @@ class StatusService:
 
     async def get_server_status(self, name: str, server_data: Dict) -> Dict:
         """Get detailed status for a single server"""
-        # Check if server is online
-        online = await self.server_service.ping_async(server_data["hostname"])
+        t0 = time.monotonic()
+
+        # Check if server is online and resolve hostname in parallel
+        online, ip = await asyncio.gather(
+            self.server_service.ping_async(server_data["hostname"]),
+            self.server_service.resolve_hostname_async(server_data["hostname"]),
+        )
 
         # Update state tracking
         self.config.update_server_state(name, online)
@@ -110,7 +125,7 @@ class StatusService:
             "mac": server_data.get("mac", ""),
             "plug": server_data.get("plug"),
             "online": online,
-            "ip": await self.server_service.resolve_hostname_async(server_data["hostname"]),
+            "ip": ip,
         }
 
         # Add uptime/downtime info
@@ -159,38 +174,78 @@ class StatusService:
                 except Exception as e:
                     logger.warning(f"Failed to get power info for {name}: {e}")
 
+        elapsed = time.monotonic() - t0
+        logger.debug(
+            "get_server_status %s: done in %.2fs (online=%s, ip=%s)",
+            name, elapsed, online, ip,
+        )
+
         return result
 
     async def get_all_status(self) -> Dict:
         """Get comprehensive status of all servers and plugs"""
+        t_start = time.monotonic()
+
+        # Get all plugs and servers config
+        plugs = self.config.list_plugs()
+        servers = self.config.list_servers()
+
+        logger.info(
+            "get_all_status: checking %d plugs + %d servers in parallel",
+            len(plugs), len(servers),
+        )
+
+        # Check all plugs and servers in parallel
+        plug_tasks = [
+            self.get_plug_status(name, plug_data)
+            for name, plug_data in plugs.items()
+        ]
+        server_tasks = [
+            self.get_server_status(name, server_data)
+            for name, server_data in servers.items()
+        ]
+
+        all_tasks = plug_tasks + server_tasks
+        results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+        # Split results back into plugs and servers
+        plugs_count = len(plug_tasks)
         plugs_status = []
         servers_status = []
 
-        # Get all plugs status
-        plugs = self.config.list_plugs()
-        for name, plug_data in plugs.items():
-            plug_status = await self.get_plug_status(name, plug_data)
-            plugs_status.append(plug_status)
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                target = list(plugs.keys())[i] if i < plugs_count else list(servers.keys())[i - plugs_count]
+                logger.error("Status check failed for %s: %s", target, result)
+                continue
+            if i < plugs_count:
+                plugs_status.append(result)
+            else:
+                servers_status.append(result)
 
-        # Get all servers status
-        servers = self.config.list_servers()
-        for name, server_data in servers.items():
-            server_status = await self.get_server_status(name, server_data)
-            servers_status.append(server_status)
+        elapsed = time.monotonic() - t_start
+        plugs_online = sum(1 for p in plugs_status if p.get("online", False))
+        servers_online = sum(1 for s in servers_status if s["online"])
+        total_power = sum(p.get("current_power", 0) for p in plugs_status)
+        logger.info(
+            "get_all_status: done in %.2fs — %d/%d servers online, %d/%d plugs online, %.1fW total",
+            elapsed, servers_online, len(servers_status),
+            plugs_online, len(plugs_status), total_power,
+        )
 
         # Calculate summary
         summary = {
-            "servers_online": sum(1 for s in servers_status if s["online"]),
+            "servers_online": servers_online,
             "servers_total": len(servers_status),
-            "plugs_online": sum(1 for p in plugs_status if p.get("online", False)),
+            "plugs_online": plugs_online,
             "plugs_on": sum(1 for p in plugs_status if p.get("state") == "on"),
             "plugs_total": len(plugs_status),
-            "total_power": sum(p.get("current_power", 0) for p in plugs_status),
+            "total_power": total_power,
         }
 
         return {
             "summary": summary,
             "servers": servers_status,
             "plugs": plugs_status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }

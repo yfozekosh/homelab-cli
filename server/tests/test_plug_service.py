@@ -191,23 +191,26 @@ class TestGetFullStatus:
         mock_info = MagicMock()
         mock_info.device_on = True
         mock_info.signal_level = 3
+        
+        mock_power = MagicMock()
+        mock_power.current_power = 50.0
+        
+        mock_energy = MagicMock()
+        mock_energy.today_runtime = 120
+        mock_energy.today_energy = 500
+        mock_energy.month_runtime = 3600
+        mock_energy.month_energy = 15000
+        
         mock_device = AsyncMock()
         mock_device.get_device_info = AsyncMock(return_value=mock_info)
-        
-        energy_data = {
-            'current_power': 50.0,
-            'today_runtime': 120,
-            'today_energy': 500,
-            'month_runtime': 3600,
-            'month_energy': 15000,
-        }
+        mock_device.get_current_power = AsyncMock(return_value=mock_power)
+        mock_device.get_energy_usage = AsyncMock(return_value=mock_energy)
         
         with patch.object(plug_service, 'get_client', return_value=mock_device):
-            with patch.object(plug_service, 'get_energy_usage', return_value=energy_data):
-                result = await plug_service.get_full_status('192.168.1.100')
-                assert result['on'] is True
-                assert result['signal_level'] == 3
-                assert result['current_power'] == 50.0
+            result = await plug_service.get_full_status('192.168.1.100')
+            assert result['on'] is True
+            assert result['signal_level'] == 3
+            assert result['current_power'] == 50.0
 
     @pytest.mark.asyncio
     async def test_get_full_status_failure_returns_offline(self, plug_service):

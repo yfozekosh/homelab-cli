@@ -10,7 +10,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from typing import Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -190,8 +190,8 @@ class Config:
             # New server state
             self.data["state"][name] = {
                 "online": online,
-                "last_change": datetime.utcnow().isoformat(),
-                "uptime_start": datetime.utcnow().isoformat() if online else None,
+                "last_change": datetime.now(timezone.utc).isoformat(),
+                "uptime_start": datetime.now(timezone.utc).isoformat() if online else None,
             }
             state_changed = True
         else:
@@ -199,9 +199,9 @@ class Config:
             if current_state != online:
                 # State changed
                 self.data["state"][name]["online"] = online
-                self.data["state"][name]["last_change"] = datetime.utcnow().isoformat()
+                self.data["state"][name]["last_change"] = datetime.now(timezone.utc).isoformat()
                 if online:
-                    self.data["state"][name]["uptime_start"] = datetime.utcnow().isoformat()
+                    self.data["state"][name]["uptime_start"] = datetime.now(timezone.utc).isoformat()
                 else:
                     self.data["state"][name]["uptime_start"] = None
                 state_changed = True

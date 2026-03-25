@@ -613,7 +613,7 @@ class BotHandlers:
         )
 
     async def _power_on_server(self, query, server_name: str):
-        """Power on a server (via button)"""
+        """Power on a server (via button, non-blocking)"""
         server = self.config.get_server(server_name)
 
         if not server or not server.get("plug"):
@@ -651,84 +651,78 @@ class BotHandlers:
             f"⚡ *Powering on {server_name}...*\n\nStarting...", parse_mode="Markdown"
         )
 
-        # Track progress with logs
-        logs = []
-        last_update = [time.time()]
+        async def _run():
+            logger.info("Power on %s: background task started (via button)", server_name)
+            t0 = time.time()
+            logs = []
+            last_update = [time.time()]
 
-        async def progress_callback(msg: str):
-            logs.append(msg)
-            now = time.time()
-            if now - last_update[0] >= 2:  # Update every 2 seconds
-                try:
-                    progress_text = "\n".join(logs[-8:])
+            async def progress_callback(msg: str):
+                logs.append(msg)
+                now = time.time()
+                if now - last_update[0] >= 2:
+                    try:
+                        progress_text = "\n".join(logs[-8:])
+                        await query.edit_message_text(
+                            f"⚡ *Powering on {server_name}...*\n\n"
+                            f"```\n{progress_text}\n```",
+                            parse_mode="Markdown",
+                        )
+                        last_update[0] = now
+                    except Exception:
+                        pass
+
+            try:
+                result = await self.power_service.power_on(
+                    server, plug["ip"], progress_callback
+                )
+                elapsed = time.time() - t0
+
+                if result["success"]:
+                    logger.info("Power on %s: completed successfully in %.1fs", server_name, elapsed)
                     await query.edit_message_text(
-                        f"⚡ *Powering on {server_name}...*\n\n"
+                        f"✅ *{server_name}* powered on successfully!",
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton(
+                                "📊 View Status",
+                                callback_data=f"server:{server_name}",
+                            )],
+                            [InlineKeyboardButton(
+                                "⬅️ Back to Servers", callback_data="servers"
+                            )],
+                        ]),
+                    )
+                else:
+                    logger.warning("Power on %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    progress_text = "\n".join(logs[-5:]) if logs else "No logs"
+                    await query.edit_message_text(
+                        f"❌ Failed to power on *{server_name}*\n\n"
+                        f"{result.get('message', 'Unknown error')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
-                    )
-                    last_update[0] = now
-                except Exception:
-                    pass
-
-        try:
-            result = await self.power_service.power_on(
-                server, plug["ip"], progress_callback
-            )
-
-            if result["success"]:
-                await query.edit_message_text(
-                    f"✅ *{server_name}* powered on successfully!",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "📊 View Status",
-                                    callback_data=f"server:{server_name}",
-                                )
-                            ],
-                            [
-                                InlineKeyboardButton(
-                                    "⬅️ Back to Servers", callback_data="servers"
-                                )
-                            ],
-                        ]
-                    ),
-                )
-            else:
-                progress_text = "\n".join(logs[-5:]) if logs else "No logs"
-                await query.edit_message_text(
-                    f"❌ Failed to power on *{server_name}*\n\n"
-                    f"{result.get('message', 'Unknown error')}\n\n"
-                    f"```\n{progress_text}\n```",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "⬅️ Back to Servers", callback_data="servers"
-                                )
-                            ]
-                        ]
-                    ),
-                )
-        except Exception as e:
-            logger.error(f"Failed to power on server: {e}")
-            await query.edit_message_text(
-                f"❌ Error: {str(e)}",
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [
-                            InlineKeyboardButton(
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton(
                                 "⬅️ Back to Servers", callback_data="servers"
-                            )
-                        ]
-                    ]
-                ),
-            )
+                            )]
+                        ]),
+                    )
+            except Exception as e:
+                elapsed = time.time() - t0
+                logger.error("Power on %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                await query.edit_message_text(
+                    f"❌ Error: {str(e)}",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(
+                            "⬅️ Back to Servers", callback_data="servers"
+                        )]
+                    ]),
+                )
+
+        asyncio.create_task(_run())
 
     async def _power_off_server(self, query, server_name: str):
-        """Power off a server (via button)"""
+        """Power off a server (via button, non-blocking)"""
         server = self.config.get_server(server_name)
 
         if not server or not server.get("plug"):
@@ -755,81 +749,75 @@ class BotHandlers:
             parse_mode="Markdown",
         )
 
-        # Track progress with logs
-        logs = []
-        last_update = [time.time()]
+        async def _run():
+            logger.info("Power off %s: background task started (via button)", server_name)
+            t0 = time.time()
+            logs = []
+            last_update = [time.time()]
 
-        async def progress_callback(msg: str):
-            logs.append(msg)
-            now = time.time()
-            if now - last_update[0] >= 2:  # Update every 2 seconds
-                try:
-                    progress_text = "\n".join(logs[-8:])
+            async def progress_callback(msg: str):
+                logs.append(msg)
+                now = time.time()
+                if now - last_update[0] >= 2:
+                    try:
+                        progress_text = "\n".join(logs[-8:])
+                        await query.edit_message_text(
+                            f"🔴 *Powering off {server_name}...*\n\n"
+                            f"```\n{progress_text}\n```",
+                            parse_mode="Markdown",
+                        )
+                        last_update[0] = now
+                    except Exception:
+                        pass
+
+            try:
+                result = await self.power_service.power_off(
+                    server, plug["ip"], progress_callback
+                )
+                elapsed = time.time() - t0
+
+                if result["success"]:
+                    logger.info("Power off %s: completed successfully in %.1fs", server_name, elapsed)
                     await query.edit_message_text(
-                        f"🔴 *Powering off {server_name}...*\n\n"
+                        f"✅ *{server_name}* powered off successfully!",
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton(
+                                "📊 View Status",
+                                callback_data=f"server:{server_name}",
+                            )],
+                            [InlineKeyboardButton(
+                                "⬅️ Back to Servers", callback_data="servers"
+                            )],
+                        ]),
+                    )
+                else:
+                    logger.warning("Power off %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    progress_text = "\n".join(logs[-5:]) if logs else "No logs"
+                    await query.edit_message_text(
+                        f"⚠️ *{server_name}* powered off (with warnings)\n\n"
+                        f"{result.get('message', '')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
-                    )
-                    last_update[0] = now
-                except Exception:
-                    pass
-
-        try:
-            result = await self.power_service.power_off(
-                server, plug["ip"], progress_callback
-            )
-
-            if result["success"]:
-                await query.edit_message_text(
-                    f"✅ *{server_name}* powered off successfully!",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "📊 View Status",
-                                    callback_data=f"server:{server_name}",
-                                )
-                            ],
-                            [
-                                InlineKeyboardButton(
-                                    "⬅️ Back to Servers", callback_data="servers"
-                                )
-                            ],
-                        ]
-                    ),
-                )
-            else:
-                progress_text = "\n".join(logs[-5:]) if logs else "No logs"
-                await query.edit_message_text(
-                    f"⚠️ *{server_name}* powered off (with warnings)\n\n"
-                    f"{result.get('message', '')}\n\n"
-                    f"```\n{progress_text}\n```",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "⬅️ Back to Servers", callback_data="servers"
-                                )
-                            ]
-                        ]
-                    ),
-                )
-        except Exception as e:
-            logger.error(f"Failed to power off server: {e}")
-            await query.edit_message_text(
-                f"❌ Error: {str(e)}",
-                reply_markup=InlineKeyboardMarkup(
-                    [
-                        [
-                            InlineKeyboardButton(
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton(
                                 "⬅️ Back to Servers", callback_data="servers"
-                            )
-                        ]
-                    ]
-                ),
-            )
+                            )]
+                        ]),
+                    )
+            except Exception as e:
+                elapsed = time.time() - t0
+                logger.error("Power off %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                await query.edit_message_text(
+                    f"❌ Error: {str(e)}",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(
+                            "⬅️ Back to Servers", callback_data="servers"
+                        )]
+                    ]),
+                )
+
+        asyncio.create_task(_run())
 
     async def _show_plug_details(self, query, plug_name: str):
         """Show plug details with actions"""
@@ -1025,7 +1013,7 @@ class BotHandlers:
             await status_msg.edit_text(f"❌ Error getting server status: {str(e)}")
 
     async def _power_on_server_msg(self, message, server_name: str):
-        """Power on server via command (with progress)"""
+        """Power on server via command (with progress, non-blocking)"""
         server = self.config.get_server(server_name)
 
         if not server:
@@ -1058,61 +1046,64 @@ class BotHandlers:
             parse_mode="Markdown",
         )
 
-        # Track progress
-        logs = []
-        last_update = [time.time()]
+        async def _run():
+            logger.info("Power on %s: background task started (via /on command)", server_name)
+            t0 = time.time()
+            logs = []
+            last_update = [time.time()]
 
-        async def progress_callback(msg: str):
-            logs.append(msg)
-            now = time.time()
-            # Update every 2 seconds
-            if now - last_update[0] >= 2:
-                try:
-                    progress_text = "\n".join(logs[-8:])  # Show last 8 log lines
+            async def progress_callback(msg: str):
+                logs.append(msg)
+                now = time.time()
+                if now - last_update[0] >= 2:
+                    try:
+                        progress_text = "\n".join(logs[-8:])
+                        await status_msg.edit_text(
+                            f"⚡ *Powering on {server_name}...*\n\n"
+                            f"```\n{progress_text}\n```",
+                            parse_mode="Markdown",
+                        )
+                        last_update[0] = now
+                    except Exception:
+                        pass
+
+            try:
+                result = await self.power_service.power_on(
+                    server, plug["ip"], progress_callback
+                )
+                elapsed = time.time() - t0
+
+                if result["success"]:
+                    logger.info("Power on %s: completed successfully in %.1fs", server_name, elapsed)
                     await status_msg.edit_text(
-                        f"⚡ *Powering on {server_name}...*\n\n"
+                        f"✅ *{server_name}* powered on successfully!\n\n"
+                        f"Use `/status {server_name}` to check status.",
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup(
+                            [[InlineKeyboardButton(
+                                "📊 View Status",
+                                callback_data=f"server:{server_name}",
+                            )]]
+                        ),
+                    )
+                else:
+                    logger.warning("Power on %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    progress_text = "\n".join(logs[-5:]) if logs else "No logs"
+                    await status_msg.edit_text(
+                        f"❌ Failed to power on *{server_name}*\n\n"
+                        f"{result.get('message', 'Unknown error')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
                     )
-                    last_update[0] = now
-                except Exception:
-                    pass
+            except Exception as e:
+                elapsed = time.time() - t0
+                logger.error("Power on %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                await status_msg.edit_text(f"❌ Error: {str(e)}")
 
-        try:
-            result = await self.power_service.power_on(
-                server, plug["ip"], progress_callback
-            )
-
-            if result["success"]:
-                await status_msg.edit_text(
-                    f"✅ *{server_name}* powered on successfully!\n\n"
-                    f"Use `/status {server_name}` to check status.",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "📊 View Status",
-                                    callback_data=f"server:{server_name}",
-                                )
-                            ]
-                        ]
-                    ),
-                )
-            else:
-                progress_text = "\n".join(logs[-5:]) if logs else "No logs"
-                await status_msg.edit_text(
-                    f"❌ Failed to power on *{server_name}*\n\n"
-                    f"{result.get('message', 'Unknown error')}\n\n"
-                    f"```\n{progress_text}\n```",
-                    parse_mode="Markdown",
-                )
-        except Exception as e:
-            logger.error(f"Failed to power on server: {e}")
-            await status_msg.edit_text(f"❌ Error: {str(e)}")
+        asyncio.create_task(_run())
 
     async def _power_off_server_msg(self, message, server_name: str):
-        """Power off server via command (with progress)"""
+        """Power off server via command (with progress, non-blocking)"""
         server = self.config.get_server(server_name)
 
         if not server:
@@ -1136,57 +1127,60 @@ class BotHandlers:
             parse_mode="Markdown",
         )
 
-        # Track progress
-        logs = []
-        last_update = [time.time()]
+        async def _run():
+            logger.info("Power off %s: background task started (via /off command)", server_name)
+            t0 = time.time()
+            logs = []
+            last_update = [time.time()]
 
-        async def progress_callback(msg: str):
-            logs.append(msg)
-            now = time.time()
-            # Update every 2 seconds
-            if now - last_update[0] >= 2:
-                try:
-                    progress_text = "\n".join(logs[-8:])
+            async def progress_callback(msg: str):
+                logs.append(msg)
+                now = time.time()
+                if now - last_update[0] >= 2:
+                    try:
+                        progress_text = "\n".join(logs[-8:])
+                        await status_msg.edit_text(
+                            f"🔴 *Powering off {server_name}...*\n\n"
+                            f"```\n{progress_text}\n```",
+                            parse_mode="Markdown",
+                        )
+                        last_update[0] = now
+                    except Exception:
+                        pass
+
+            try:
+                result = await self.power_service.power_off(
+                    server, plug["ip"], progress_callback
+                )
+                elapsed = time.time() - t0
+
+                if result["success"]:
+                    logger.info("Power off %s: completed successfully in %.1fs", server_name, elapsed)
                     await status_msg.edit_text(
-                        f"🔴 *Powering off {server_name}...*\n\n"
+                        f"✅ *{server_name}* powered off successfully!",
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup(
+                            [[InlineKeyboardButton(
+                                "📊 View Status",
+                                callback_data=f"server:{server_name}",
+                            )]]
+                        ),
+                    )
+                else:
+                    logger.warning("Power off %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    progress_text = "\n".join(logs[-5:]) if logs else "No logs"
+                    await status_msg.edit_text(
+                        f"⚠️ *{server_name}* powered off (with warnings)\n\n"
+                        f"{result.get('message', '')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
                     )
-                    last_update[0] = now
-                except Exception:
-                    pass
+            except Exception as e:
+                elapsed = time.time() - t0
+                logger.error("Power off %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                await status_msg.edit_text(f"❌ Error: {str(e)}")
 
-        try:
-            result = await self.power_service.power_off(
-                server, plug["ip"], progress_callback
-            )
-
-            if result["success"]:
-                await status_msg.edit_text(
-                    f"✅ *{server_name}* powered off successfully!",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "📊 View Status",
-                                    callback_data=f"server:{server_name}",
-                                )
-                            ]
-                        ]
-                    ),
-                )
-            else:
-                progress_text = "\n".join(logs[-5:]) if logs else "No logs"
-                await status_msg.edit_text(
-                    f"⚠️ *{server_name}* powered off (with warnings)\n\n"
-                    f"{result.get('message', '')}\n\n"
-                    f"```\n{progress_text}\n```",
-                    parse_mode="Markdown",
-                )
-        except Exception as e:
-            logger.error(f"Failed to power off server: {e}")
-            await status_msg.edit_text(f"❌ Error: {str(e)}")
+        asyncio.create_task(_run())
 
     async def handle_status_update(self, updateObj):
         """Handle deploy status update event"""

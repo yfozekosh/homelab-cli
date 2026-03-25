@@ -23,10 +23,13 @@ class PowerControlService:
         self, server: Dict, plug_ip: str, progress_callback: Optional[Callable] = None
     ) -> Dict:
         """Power on a server with monitoring"""
+        server_name = server.get("hostname", plug_ip)
+        t0 = time.time()
         result = {"success": False, "message": "", "logs": []}
 
         def log(msg: str):
             result["logs"].append(msg)
+            logger.info("power_on %s: %s", server_name, msg)
             if progress_callback:
                 progress_callback(msg)
 
@@ -53,9 +56,13 @@ class PowerControlService:
                     log("Turning off plug...")
                     await self.plug_service.turn_off(plug_ip)
                     result["message"] = "Server failed to boot"
+                    elapsed = time.time() - t0
+                    logger.warning("power_on %s: FAILED after %.1fs", server_name, elapsed)
                     return result
 
+        elapsed = time.time() - t0
         log("Server is online!")
+        logger.info("power_on %s: SUCCESS in %.1fs", server_name, elapsed)
         result["success"] = True
         result["message"] = "Server powered on successfully"
         return result
@@ -87,10 +94,13 @@ class PowerControlService:
         self, server: Dict, plug_ip: str, progress_callback: Optional[Callable] = None
     ) -> Dict:
         """Power off a server with monitoring"""
+        server_name = server.get("hostname", plug_ip)
+        t0 = time.time()
         result = {"success": False, "message": "", "logs": []}
 
         def log(msg: str):
             result["logs"].append(msg)
+            logger.info("power_off %s: %s", server_name, msg)
             if progress_callback:
                 progress_callback(msg)
 
@@ -123,7 +133,7 @@ class PowerControlService:
                 else:
                     timestamp_low_power = None
             except Exception as e:
-                logger.warning(f"Failed to read power: {e}")
+                logger.warning("Failed to read power for %s: %s", server_name, e)
 
             await asyncio.sleep(2)
         else:
@@ -133,6 +143,8 @@ class PowerControlService:
         await self.plug_service.turn_off(plug_ip)
         log("Server is offline")
 
+        elapsed = time.time() - t0
+        logger.info("power_off %s: completed in %.1fs", server_name, elapsed)
         result["success"] = True
         result["message"] = "Server powered off successfully"
         return result

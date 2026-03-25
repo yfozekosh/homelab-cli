@@ -63,8 +63,9 @@ fi
 
 # Start FastAPI server in background
 echo "Starting API server on port 8000..."
-python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 &
+python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 2>&1 &
 API_PID=$!
+echo "API server PID: $API_PID"
 
 # Wait a bit for API to start
 sleep 3
@@ -72,8 +73,19 @@ sleep 3
 # Start Telegram bot if token is provided
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
     echo "Starting Telegram bot..."
-    python -m server.telegram_bot &
+    (
+        attempt=0
+        while true; do
+            attempt=$((attempt + 1))
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot starting (attempt #${attempt})..."
+            python -m server.telegram_bot
+            exit_code=$?
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot exited with code ${exit_code}, restarting in 5s..."
+            sleep 5
+        done
+    ) &
     BOT_PID=$!
+    echo "Bot supervisor PID: $BOT_PID"
 else
     echo "TELEGRAM_BOT_TOKEN not set, skipping Telegram bot"
     BOT_PID=""
@@ -83,7 +95,7 @@ fi
 shutdown() {
     echo "Shutting down services..."
     if [ -n "$BOT_PID" ]; then
-        kill $BOT_PID 2>/dev/null || true
+        kill -- -$BOT_PID 2>/dev/null || kill $BOT_PID 2>/dev/null || true
     fi
     kill $API_PID 2>/dev/null || true
     wait
