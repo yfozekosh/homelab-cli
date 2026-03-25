@@ -39,3 +39,13 @@ class PlugManager:
         """Remove a plug"""
         self.api._delete("/plugs", {"name": name})
         print(f"✓ Plug '{name}' removed successfully")
+
+    def turn_on(self, name: str):
+        """Turn on a plug by name"""
+        result = self.api._post(f"/plugs/{name}/on", {})
+        print(f"✓ {result['message']}")
+
+    def turn_off(self, name: str):
+        """Turn off a plug by name"""
+        result = self.api._post(f"/plugs/{name}/off", {})
+        print(f"✓ {result['message']}")

@@ -24,7 +24,7 @@ def main():
 
     # Config commands
     config_parser = subparsers.add_parser("config", help="Configure client")
-    config_sub = config_parser.add_subparsers(dest="action")
+    config_sub = config_parser.add_subparsers(dest="action", required=True)
 
     config_server = config_sub.add_parser("set-server", help="Set server URL")
     config_server.add_argument("url", help="Server URL (e.g., http://localhost:8000)")
@@ -39,7 +39,7 @@ def main():
 
     # Plug commands
     plug_parser = subparsers.add_parser("plug", help="Manage plugs")
-    plug_sub = plug_parser.add_subparsers(dest="action")
+    plug_sub = plug_parser.add_subparsers(dest="action", required=True)
 
     plug_add = plug_sub.add_parser("add", help="Add a plug")
     plug_add.add_argument("name", help="Plug name")
@@ -54,9 +54,15 @@ def main():
 
     plug_sub.add_parser("list", help="List plugs")
 
+    plug_on = plug_sub.add_parser("on", help="Turn on a plug")
+    plug_on.add_argument("name", help="Plug name")
+
+    plug_off = plug_sub.add_parser("off", help="Turn off a plug")
+    plug_off.add_argument("name", help="Plug name")
+
     # Server commands
     server_parser = subparsers.add_parser("server", help="Manage servers")
-    server_sub = server_parser.add_subparsers(dest="action")
+    server_sub = server_parser.add_subparsers(dest="action", required=True)
 
     server_add = server_sub.add_parser("add", help="Add a server")
     server_add.add_argument("name", help="Server name")
@@ -173,6 +179,10 @@ def main():
                 client.remove_plug(args.name)
             elif args.action == "list":
                 client.list_plugs()
+            elif args.action == "on":
+                client.plug_on(args.name)
+            elif args.action == "off":
+                client.plug_off(args.name)
 
         elif args.command == "server":
             if args.action == "add":

@@ -189,6 +189,14 @@ class HomelabClient:
         """Remove a server"""
         self.servers.remove_server(name)
 
+    def plug_on(self, name: str):
+        """Turn on a plug directly"""
+        self.plugs.turn_on(name)
+
+    def plug_off(self, name: str):
+        """Turn off a plug directly"""
+        self.plugs.turn_off(name)
+
     # Power operations - delegate to PowerManager
     def power_on(self, name: str):
         """Power on a server"""

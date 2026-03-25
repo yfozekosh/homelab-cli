@@ -4,8 +4,11 @@ Unit tests for Homelab CLI Client
 """
 
 import os
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 # Import the client
 from homelab_client import HomelabClient
@@ -283,3 +286,77 @@ class TestMainFunction:
         result = main()
         # Function returns None on help
         assert result is None
+
+    @patch.dict(
+        os.environ,
+        {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
+    )
+    @patch("homelab_client.config.Path.home")
+    @patch("homelab_client.config.Path.exists")
+    @patch("sys.argv", ["lab", "plug", "on", "test-plug"])
+    def test_main_plug_on(self, mock_exists, mock_home):
+        """Test main with plug on command"""
+        mock_exists.return_value = False
+        mock_home.return_value = Path("/home/test")
+
+        with patch.object(HomelabClient, "plug_on") as mock_plug_on:
+            with patch.object(HomelabClient, "health_check", return_value=True):
+                from homelab_client import main
+
+                main()
+
+        mock_plug_on.assert_called_once_with("test-plug")
+
+    @patch.dict(
+        os.environ,
+        {"HOMELAB_SERVER_URL": "http://test.local", "HOMELAB_API_KEY": "test-key"},
+    )
+    @patch("homelab_client.config.Path.home")
+    @patch("homelab_client.config.Path.exists")
+    @patch("sys.argv", ["lab", "plug", "off", "test-plug"])
+    def test_main_plug_off(self, mock_exists, mock_home):
+        """Test main with plug off command"""
+        mock_exists.return_value = False
+        mock_home.return_value = Path("/home/test")
+
+        with patch.object(HomelabClient, "plug_off") as mock_plug_off:
+            with patch.object(HomelabClient, "health_check", return_value=True):
+                from homelab_client import main
+
+                main()
+
+        mock_plug_off.assert_called_once_with("test-plug")
+
+    @patch("sys.argv", ["lab", "plug"])
+    def test_main_plug_no_action_shows_help(self):
+        """Test main with plug command but no action shows help"""
+        from homelab_client import main
+
+        captured = StringIO()
+        with patch("sys.stderr", captured):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 2
+        assert "required" in captured.getvalue().lower()
+
+    @patch("sys.argv", ["lab", "server"])
+    def test_main_server_no_action_shows_help(self):
+        """Test main with server command but no action shows help"""
+        from homelab_client import main
+
+        captured = StringIO()
+        with patch("sys.stderr", captured):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 2
+
+    @patch("sys.argv", ["lab", "config"])
+    def test_main_config_no_action_shows_help(self):
+        """Test main with config command but no action shows help"""
+        from homelab_client import main
+
+        captured = StringIO()
+        with patch("sys.stderr", captured):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+        assert exc_info.value.code == 2
