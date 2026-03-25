@@ -6,7 +6,6 @@ from typing import List
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from ..dependencies import ServiceContainer
 from .keyboards import get_main_menu
 from .formatters import (
     format_status_text,
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class BotHandlers:
-    def __init__(self, container: ServiceContainer, allowed_users: List[int]):
+    def __init__(self, container, allowed_users: List[int]):
         self.config = container.config
         self.plug_service = container.plug_service
         self.server_service = container.server_service
@@ -29,6 +28,9 @@ class BotHandlers:
         self.status_service = container.status_service
         self.allowed_users = allowed_users
         self.event_service = container.event_service
+
+    def register_listeners(self):
+        """Register event listeners. Call once after construction."""
         self.event_service.add_listener("status_update", self.handle_status_update)
 
     def _check_access(self, user_id: int) -> bool:

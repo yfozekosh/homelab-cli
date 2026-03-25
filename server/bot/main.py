@@ -18,7 +18,6 @@ from telegram.ext import (
 )
 
 from ..dependencies import get_service_container
-from ..event_service import EventService
 from ..logging_config import setup_logging
 from .handlers import BotHandlers
 
@@ -67,6 +66,7 @@ class HomelabBot:
         
         # Initialize handlers
         self.handlers = BotHandlers(self.container, self.allowed_users)
+        self.handlers.register_listeners()
 
         # Build application
         self.app = Application.builder().token(self.token).build()
@@ -75,10 +75,11 @@ class HomelabBot:
 
     def _setup_event_listeners(self):
         """Setup event listeners for notifications"""
-        EventService.add_listener("deployment.started", self._on_deployment_started)
-        EventService.add_listener("deployment.completed", self._on_deployment_completed)
-        EventService.add_listener("deployment.failed", self._on_deployment_failed)
-        EventService.add_listener("server.status_change", self._on_server_status_change)
+        event_service = self.container.event_service
+        event_service.add_listener("deployment.started", self._on_deployment_started)
+        event_service.add_listener("deployment.completed", self._on_deployment_completed)
+        event_service.add_listener("deployment.failed", self._on_deployment_failed)
+        event_service.add_listener("server.status_change", self._on_server_status_change)
 
     async def _on_deployment_started(self, data: dict):
         """Handle deployment started event"""

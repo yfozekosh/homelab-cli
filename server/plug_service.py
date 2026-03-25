@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 class PlugService:
     """Manages Tapo smart plugs"""
 
-    username: str
-    password: str
-
     def __init__(self):
         username = os.getenv("TAPO_USERNAME")
         password = os.getenv("TAPO_PASSWORD")
@@ -71,7 +68,7 @@ class PlugService:
                 "on": info.device_on,
                 "signal_level": info.signal_level,
             }
-        except (asyncio.TimeoutError, Exception) as e:
+        except Exception as e:
             logger.warning(f"Failed to get status for {ip}: {e}")
             return {"on": False, "signal_level": 0}
 
@@ -131,7 +128,7 @@ class PlugService:
                 "month_runtime": energy.month_runtime,
                 "month_energy": energy.month_energy,
             }
-        except (asyncio.TimeoutError, Exception) as e:
+        except Exception as e:
             elapsed = time.monotonic() - t0
             logger.warning("get_full_status %s: failed after %.2fs: %s", ip, elapsed, e)
             return {

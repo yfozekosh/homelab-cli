@@ -7,33 +7,33 @@ logger = logging.getLogger(__name__)
 
 
 class EventService:
-    """Moves events between services and handles event processing"""
+    """Moves events between services and handles event processing.
 
-    listeners: Dict[str, List[Callable]] = {}
+    Instance-level state means each EventService is isolated —
+    no shared mutable class variables that leak across tests.
+    """
 
-    @classmethod
-    def add_listener(cls, event_name: str, callback: Callable) -> None:
+    def __init__(self) -> None:
+        self._listeners: Dict[str, List[Callable]] = {}
+
+    def add_listener(self, event_name: str, callback: Callable) -> None:
         """Add a listener for an event"""
-        logger.debug(f"Adding listener for event: {event_name}")
-        events = cls.listeners.setdefault(event_name, [])
-        events.append(callback)
+        logger.debug("Adding listener for event: %s", event_name)
+        self._listeners.setdefault(event_name, []).append(callback)
 
-    @classmethod
-    async def emit(cls, event_name: str, data: Any) -> None:
+    async def emit(self, event_name: str, data: Any) -> None:
         """Emit an event to all listeners"""
-        logger.info(f"Emitting event: {event_name}")
-        logger.debug(f"Event data: {data}")
-        listeners = cls.listeners.get(event_name, [])
-        for callback in listeners:
+        logger.info("Emitting event: %s", event_name)
+        logger.debug("Event data: %s", data)
+        for callback in self._listeners.get(event_name, []):
             try:
                 await callback(data)
             except Exception as e:
-                logger.error(f"Error in event listener for {event_name}: {e}", exc_info=True)
+                logger.error("Error in event listener for %s: %s", event_name, e, exc_info=True)
 
-    @classmethod
-    def clear_listeners(cls, event_name: str | None = None) -> None:
+    def clear_listeners(self, event_name: str | None = None) -> None:
         """Clear listeners for a specific event or all events"""
         if event_name:
-            cls.listeners.pop(event_name, None)
+            self._listeners.pop(event_name, None)
         else:
-            cls.listeners.clear()
+            self._listeners.clear()

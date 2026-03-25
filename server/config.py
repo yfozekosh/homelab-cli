@@ -87,7 +87,7 @@ class Config:
                 # Clean up temp file on error
                 try:
                     os.unlink(temp_path)
-                except:
+                except OSError:
                     pass
                 raise e
                 

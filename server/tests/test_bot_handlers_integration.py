@@ -49,82 +49,71 @@ def service_container(mock_env):
     ServiceContainer.reset()
 
 
-@pytest.fixture(autouse=True)
-def clear_event_listeners():
-    """Clear all event listeners before and after each test"""
-    EventService.clear_listeners()
-    yield
-    EventService.clear_listeners()
-
-
 class TestBotHandlersEventIntegration:
     """Test BotHandlers integration with EventService"""
 
-    def test_handlers_registers_event_listener(self, service_container):
-        """Test that BotHandlers registers event listener on init"""
+    def test_register_listeners_adds_handler(self, service_container):
+        """BotHandlers.register_listeners registers the status_update listener"""
         allowed_users = [123456]
-        
-        # Create handlers - this should register the listener
         handlers = BotHandlers(service_container, allowed_users)
-        
-        # Verify listener was registered
-        assert "status_update" in EventService.listeners
-        assert len(EventService.listeners["status_update"]) == 1
-        
+        handlers.register_listeners()
+
+        event_svc = service_container.event_service
+        assert "status_update" in event_svc._listeners
+        assert len(event_svc._listeners["status_update"]) == 1
+
     @pytest.mark.asyncio
     async def test_event_service_can_emit_to_handler(self, service_container):
-        """Test that EventService can emit events to handler"""
+        """EventService can emit events to handler"""
         allowed_users = [123456]
         handler_called = []
-        
-        # Create handlers
+
         handlers = BotHandlers(service_container, allowed_users)
-        
-        # Mock the handle_status_update method
+
         async def mock_handle(updateObj):
             handler_called.append(updateObj)
-        
+
         handlers.handle_status_update = mock_handle
-        
-        # Re-register with mocked method
-        EventService.clear_listeners("status_update")
-        EventService.add_listener("status_update", handlers.handle_status_update)
-        
-        # Emit event
+        handlers.register_listeners()
+
         test_data = {"server": "test-server", "status": "online"}
-        await EventService.emit("status_update", test_data)
-        
-        # Verify handler was called
+        await service_container.event_service.emit("status_update", test_data)
+
         assert len(handler_called) == 1
         assert handler_called[0] == test_data
 
     def test_event_service_has_correct_method_names(self):
-        """Test that EventService has the expected method names (snake_case)"""
-        # Verify correct method names exist
+        """EventService has the expected method names"""
         assert hasattr(EventService, 'add_listener')
         assert hasattr(EventService, 'emit')
         assert hasattr(EventService, 'clear_listeners')
-        
-        # Verify old camelCase names don't exist
         assert not hasattr(EventService, 'addListener')
         assert not hasattr(EventService, 'clearListeners')
 
     @pytest.mark.asyncio
     async def test_multiple_handlers_can_register(self, service_container):
-        """Test that multiple handlers can register for the same event"""
+        """Multiple handlers can register for the same event"""
         allowed_users = [123456]
-        
-        # Create two handler instances
+        event_svc = service_container.event_service
+
         handlers1 = BotHandlers(service_container, allowed_users)
+        handlers1.register_listeners()
         handlers2 = BotHandlers(service_container, allowed_users)
-        
-        # Both should have registered
-        assert len(EventService.listeners["status_update"]) == 2
+        handlers2.register_listeners()
+
+        assert len(event_svc._listeners["status_update"]) == 2
 
     def test_container_provides_event_service(self, service_container):
-        """Test that container provides EventService instance"""
+        """Container provides EventService instance"""
         assert hasattr(service_container, 'event_service')
         assert service_container.event_service is not None
-        from server.event_service import EventService
-        # EventService is instantiated, so check it's an instance of the class
         assert isinstance(service_container.event_service, EventService)
+
+    @pytest.mark.asyncio
+    async def test_constructor_does_not_register(self, service_container):
+        """Constructor alone does NOT register listeners"""
+        allowed_users = [123456]
+        handlers = BotHandlers(service_container, allowed_users)
+        # Without register_listeners(), no listeners are added
+        event_svc = service_container.event_service
+        assert "status_update" not in event_svc._listeners
