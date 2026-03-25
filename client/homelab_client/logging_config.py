@@ -23,17 +23,15 @@ class EmojiFormatter(logging.Formatter):
 
 
 def setup_logging(
-    level: int = logging.INFO,
-    log_file: Optional[str] = None,
-    verbose: bool = False
+    level: int = logging.INFO, log_file: Optional[str] = None, verbose: bool = False
 ) -> logging.Logger:
     """Set up logging for the Homelab client
-    
+
     Args:
         level: Logging level (default: INFO)
         log_file: Optional file path to write logs
         verbose: If True, use DEBUG level
-        
+
     Returns:
         Configured logger instance
     """
@@ -42,7 +40,7 @@ def setup_logging(
 
     logger = logging.getLogger("homelab")
     logger.setLevel(level)
-    
+
     # Clear existing handlers
     logger.handlers.clear()
 
@@ -50,7 +48,9 @@ def setup_logging(
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(level)
     console_formatter = EmojiFormatter(
-        "%(emoji)s %(message)s" if level >= logging.INFO else "%(emoji)s [%(name)s] %(message)s"
+        "%(emoji)s %(message)s"
+        if level >= logging.INFO
+        else "%(emoji)s [%(name)s] %(message)s"
     )
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
@@ -70,10 +70,10 @@ def setup_logging(
 
 def get_logger(name: str = "homelab") -> logging.Logger:
     """Get a logger instance
-    
+
     Args:
         name: Logger name (default: "homelab")
-        
+
     Returns:
         Logger instance
     """

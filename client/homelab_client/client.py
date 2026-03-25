@@ -2,14 +2,15 @@
 
 import os
 from typing import Optional
-from .config import ConfigManager
+
 from .api_client import APIClient
+from .config import ConfigManager
+from .exceptions import ConfigurationError
 from .plug_manager import PlugManager
-from .server_manager import ServerManager
 from .power_manager import PowerManager
 from .price_manager import PriceManager
+from .server_manager import ServerManager
 from .status_manager import StatusManager
-from .exceptions import ConfigurationError
 
 
 class HomelabClient:
@@ -88,7 +89,7 @@ class HomelabClient:
     # Health check
     def ssh_healthcheck(self) -> bool:
         """Check SSH connectivity and sudo permissions for all servers
-        
+
         Returns:
             bool: True if all servers pass health check, False otherwise
         """

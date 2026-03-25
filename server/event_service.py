@@ -1,7 +1,7 @@
 """Event service for handling events between services"""
 
 import logging
-from typing import Dict, List, Callable, Any
+from typing import Any, Callable, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,9 @@ class EventService:
             try:
                 await callback(data)
             except Exception as e:
-                logger.error("Error in event listener for %s: %s", event_name, e, exc_info=True)
+                logger.error(
+                    "Error in event listener for %s: %s", event_name, e, exc_info=True
+                )
 
     def clear_listeners(self, event_name: str | None = None) -> None:
         """Clear listeners for a specific event or all events"""

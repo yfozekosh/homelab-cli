@@ -2,10 +2,11 @@
 Plug Management Service
 """
 
-import os
-import logging
 import asyncio
+import logging
+import os
 import time
+
 from tapo import ApiClient
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class PlugService:
             raise ValueError(
                 "TAPO_USERNAME and TAPO_PASSWORD environment variables must be set"
             )
-        
+
         self.username = username
         self.password = password
 
@@ -111,12 +112,17 @@ class PlugService:
             power_task = asyncio.wait_for(device.get_current_power(), timeout=1.5)
             energy_task = asyncio.wait_for(device.get_energy_usage(), timeout=1.5)
 
-            info, current, energy = await asyncio.gather(info_task, power_task, energy_task)
+            info, current, energy = await asyncio.gather(
+                info_task, power_task, energy_task
+            )
 
             elapsed = time.monotonic() - t0
             logger.debug(
                 "get_full_status %s: done in %.2fs (power=%.1fW, on=%s)",
-                ip, elapsed, current.current_power, info.device_on,
+                ip,
+                elapsed,
+                current.current_power,
+                info.device_on,
             )
 
             return {

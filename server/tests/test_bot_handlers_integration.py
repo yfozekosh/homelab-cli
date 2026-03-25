@@ -1,10 +1,11 @@
 """Integration tests for bot handlers and event service"""
 
-import pytest
-from unittest.mock import patch
-import tempfile
 import json
 import os
+import tempfile
+from unittest.mock import patch
+
+import pytest
 
 from server.bot.handlers import BotHandlers
 from server.dependencies import ServiceContainer
@@ -14,13 +15,16 @@ from server.event_service import EventService
 @pytest.fixture
 def temp_config():
     """Create a temporary config file"""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        json.dump({
-            "plugs": {},
-            "servers": {},
-            "state": {},
-            "settings": {"electricity_price": 0.0}
-        }, f)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(
+            {
+                "plugs": {},
+                "servers": {},
+                "state": {},
+                "settings": {"electricity_price": 0.0},
+            },
+            f,
+        )
         temp_path = f.name
     yield temp_path
     os.unlink(temp_path)
@@ -84,11 +88,11 @@ class TestBotHandlersEventIntegration:
 
     def test_event_service_has_correct_method_names(self):
         """EventService has the expected method names"""
-        assert hasattr(EventService, 'add_listener')
-        assert hasattr(EventService, 'emit')
-        assert hasattr(EventService, 'clear_listeners')
-        assert not hasattr(EventService, 'addListener')
-        assert not hasattr(EventService, 'clearListeners')
+        assert hasattr(EventService, "add_listener")
+        assert hasattr(EventService, "emit")
+        assert hasattr(EventService, "clear_listeners")
+        assert not hasattr(EventService, "addListener")
+        assert not hasattr(EventService, "clearListeners")
 
     @pytest.mark.asyncio
     async def test_multiple_handlers_can_register(self, service_container):
@@ -105,7 +109,7 @@ class TestBotHandlersEventIntegration:
 
     def test_container_provides_event_service(self, service_container):
         """Container provides EventService instance"""
-        assert hasattr(service_container, 'event_service')
+        assert hasattr(service_container, "event_service")
         assert service_container.event_service is not None
         assert isinstance(service_container.event_service, EventService)
 

@@ -1,16 +1,18 @@
 """Status monitoring operations"""
 
-import sys
 import os
-import time
 import select
+import sys
 import threading
+import time
 from typing import Optional
+
 import requests
 from status_display import StatusDisplay
+
 from .api_client import APIClient
+from .constants import INITIAL_DATA_TIMEOUT, STATUS_FETCH_TIMEOUT
 from .exceptions import APIError, ConnectionError
-from .constants import STATUS_FETCH_TIMEOUT, INITIAL_DATA_TIMEOUT
 
 
 class StatusManager:
@@ -155,8 +157,8 @@ class StatusManager:
         old_settings = None
         if follow_interval is not None and os.name != "nt":
             try:
-                import tty
                 import termios
+                import tty
 
                 old_settings = termios.tcgetattr(sys.stdin)
                 tty.setcbreak(sys.stdin.fileno())

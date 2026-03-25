@@ -1,5 +1,6 @@
 """Test status endpoint"""
 
+
 class TestStatus:
     def test_status_returns_200(self, api_client):
         response = api_client.get("/status")

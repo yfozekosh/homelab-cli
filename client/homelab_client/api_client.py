@@ -1,6 +1,7 @@
 """Base API client for Homelab server communication"""
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import requests
 
 from .exceptions import APIError, ConnectionError

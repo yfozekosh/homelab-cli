@@ -1,5 +1,7 @@
 """Test concurrent requests"""
+
 import concurrent.futures
+
 
 class TestConcurrency:
     def test_multiple_simultaneous_health_checks(self, api_client):

@@ -1,13 +1,14 @@
 """CLI entry point for Homelab client"""
 
-import sys
 import argparse
+import sys
+
 from homelab_client.client import HomelabClient
 from homelab_client.exceptions import (
-    HomelabError,
     APIError,
     ConfigurationError,
     ConnectionError,
+    HomelabError,
     ValidationError,
 )
 

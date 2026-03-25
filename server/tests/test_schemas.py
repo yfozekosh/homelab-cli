@@ -4,14 +4,14 @@ import pytest
 from pydantic import ValidationError
 
 from server.schemas import (
+    ElectricityPrice,
     PlugCreate,
     PlugRemove,
     PlugUpdate,
-    ServerCreate,
-    ServerUpdate,
-    ServerRemove,
     PowerAction,
-    ElectricityPrice,
+    ServerCreate,
+    ServerRemove,
+    ServerUpdate,
 )
 
 

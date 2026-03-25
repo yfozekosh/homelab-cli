@@ -4,6 +4,7 @@ Pydantic schemas for API request/response validation
 
 import re
 from typing import Optional
+
 from pydantic import BaseModel, field_validator
 
 # Validation patterns
@@ -13,7 +14,9 @@ IP_PATTERN = re.compile(
 )
 MAC_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$")
-HOSTNAME_PATTERN = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(?:\.[A-Za-z0-9-]{1,63})*$")
+HOSTNAME_PATTERN = re.compile(
+    r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(?:\.[A-Za-z0-9-]{1,63})*$"
+)
 
 
 class PlugCreate(BaseModel):

@@ -2,17 +2,17 @@
 Telegram Bot for Homelab Management
 """
 
-import os
-import logging
 import asyncio
-import time
+import logging
+import os
 import re
+import time
 from typing import List
 
 from telegram.ext import (
     Application,
-    CommandHandler,
     CallbackQueryHandler,
+    CommandHandler,
     MessageHandler,
     filters,
 )
@@ -63,7 +63,7 @@ class HomelabBot:
 
         # Initialize services via Dependency Injection
         self.container = get_service_container()
-        
+
         # Initialize handlers
         self.handlers = BotHandlers(self.container, self.allowed_users)
         self.handlers.register_listeners()
@@ -77,9 +77,13 @@ class HomelabBot:
         """Setup event listeners for notifications"""
         event_service = self.container.event_service
         event_service.add_listener("deployment.started", self._on_deployment_started)
-        event_service.add_listener("deployment.completed", self._on_deployment_completed)
+        event_service.add_listener(
+            "deployment.completed", self._on_deployment_completed
+        )
         event_service.add_listener("deployment.failed", self._on_deployment_failed)
-        event_service.add_listener("server.status_change", self._on_server_status_change)
+        event_service.add_listener(
+            "server.status_change", self._on_server_status_change
+        )
 
     async def _on_deployment_started(self, data: dict):
         """Handle deployment started event"""
@@ -113,7 +117,7 @@ class HomelabBot:
         server_name = data.get("server", "Unknown")
         old_status = data.get("old_status", "unknown")
         new_status = data.get("new_status", "unknown")
-        
+
         icon = "🟢" if new_status == "online" else "🔴"
         message = f"{icon} *Server Status Change*\n\n"
         message += f"Server: *{server_name}*\n"
@@ -125,13 +129,11 @@ class HomelabBot:
         if not self.allowed_users:
             logger.warning("No allowed users configured for broadcast")
             return
-        
+
         for user_id in self.allowed_users:
             try:
                 await self.app.bot.send_message(
-                    chat_id=user_id,
-                    text=message,
-                    parse_mode=parse_mode
+                    chat_id=user_id, text=message, parse_mode=parse_mode
                 )
                 logger.debug(f"Broadcast message sent to {user_id}")
             except Exception as e:
@@ -149,7 +151,9 @@ class HomelabBot:
         self.app.add_handler(CommandHandler("clear", self.handlers.clear_command))
         self.app.add_handler(CallbackQueryHandler(self.handlers.button_callback))
         self.app.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handlers.unknown_message)
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND, self.handlers.unknown_message
+            )
         )
 
     async def run(self):
@@ -171,6 +175,7 @@ class HomelabBot:
             build_info = {}
             try:
                 import json
+
                 # Try relative to module first, then absolute
                 paths = ["server/build_info.json", "build_info.json"]
                 for path in paths:
@@ -182,13 +187,21 @@ class HomelabBot:
                 logger.warning(f"Failed to load build info: {e}")
 
             message_text = "🚀 *Homelab Bot Deployed and Ready!*\n\n"
-            
+
             if build_info:
-                message_text += f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
-                message_text += f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
-                message_text += f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
-                message_text += f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
-                
+                message_text += (
+                    f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
+                )
+                message_text += (
+                    f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
+                )
+                message_text += (
+                    f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
+                )
+                message_text += (
+                    f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
+                )
+
                 if build_info.get("latest_changes"):
                     message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
 
@@ -197,9 +210,7 @@ class HomelabBot:
             for user_id in self.allowed_users:
                 try:
                     await self.app.bot.send_message(
-                        chat_id=user_id,
-                        text=message_text,
-                        parse_mode="Markdown"
+                        chat_id=user_id, text=message_text, parse_mode="Markdown"
                     )
                 except Exception as e:
                     logger.error(f"Failed to send startup message to {user_id}: {e}")

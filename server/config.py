@@ -2,15 +2,15 @@
 Configuration Manager for Homelab Server
 """
 
-import os
+import fcntl
 import json
 import logging
-import fcntl
-import tempfile
+import os
 import shutil
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -55,21 +55,19 @@ class Config:
         try:
             # Create backup of existing config
             if backup and self.config_path.exists():
-                backup_path = self.config_path.with_suffix('.json.bak')
+                backup_path = self.config_path.with_suffix(".json.bak")
                 try:
                     shutil.copy2(self.config_path, backup_path)
                 except Exception as e:
                     logger.warning(f"Failed to create backup: {e}")
-            
+
             # Write to temporary file first
             temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.config_path.parent, 
-                prefix='.config_', 
-                suffix='.tmp'
+                dir=self.config_path.parent, prefix=".config_", suffix=".tmp"
             )
-            
+
             try:
-                with os.fdopen(temp_fd, 'w') as f:
+                with os.fdopen(temp_fd, "w") as f:
                     # Acquire exclusive lock
                     fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                     try:
@@ -78,11 +76,11 @@ class Config:
                         os.fsync(f.fileno())  # Ensure data is written to disk
                     finally:
                         fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-                
+
                 # Atomic rename
                 os.replace(temp_path, self.config_path)
                 logger.debug("Configuration saved atomically")
-                
+
             except Exception as e:
                 # Clean up temp file on error
                 try:
@@ -90,7 +88,7 @@ class Config:
                 except OSError:
                     pass
                 raise e
-                
+
         except Exception as e:
             logger.error(f"Failed to save config: {e}")
             raise
@@ -185,13 +183,15 @@ class Config:
             self.data["state"] = {}
 
         state_changed = False
-        
+
         if name not in self.data["state"]:
             # New server state
             self.data["state"][name] = {
                 "online": online,
                 "last_change": datetime.now(timezone.utc).isoformat(),
-                "uptime_start": datetime.now(timezone.utc).isoformat() if online else None,
+                "uptime_start": (
+                    datetime.now(timezone.utc).isoformat() if online else None
+                ),
             }
             state_changed = True
         else:
@@ -199,9 +199,13 @@ class Config:
             if current_state != online:
                 # State changed
                 self.data["state"][name]["online"] = online
-                self.data["state"][name]["last_change"] = datetime.now(timezone.utc).isoformat()
+                self.data["state"][name]["last_change"] = datetime.now(
+                    timezone.utc
+                ).isoformat()
                 if online:
-                    self.data["state"][name]["uptime_start"] = datetime.now(timezone.utc).isoformat()
+                    self.data["state"][name]["uptime_start"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
                 else:
                     self.data["state"][name]["uptime_start"] = None
                 state_changed = True

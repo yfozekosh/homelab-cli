@@ -1,8 +1,9 @@
 """Unit tests for StatusService"""
 
-import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone, timedelta
+
+import pytest
 
 from server.status_service import StatusService
 
@@ -17,8 +18,16 @@ def config():
             "plug2": {"ip": "192.168.1.101"},
         },
         "servers": {
-            "srv1": {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"},
-            "srv2": {"hostname": "server2.local", "mac": "AA:BB:CC:DD:EE:02", "plug": None},
+            "srv1": {
+                "hostname": "server1.local",
+                "mac": "AA:BB:CC:DD:EE:01",
+                "plug": "plug1",
+            },
+            "srv2": {
+                "hostname": "server2.local",
+                "mac": "AA:BB:CC:DD:EE:02",
+                "plug": None,
+            },
         },
         "settings": {"electricity_price": 0.25},
     }
@@ -68,7 +77,9 @@ class TestFormatDuration:
 
     def test_days_hours_minutes(self, status_service):
         """Formats days, hours, and minutes"""
-        past = (datetime.now(timezone.utc) - timedelta(days=2, hours=3, minutes=15)).isoformat()
+        past = (
+            datetime.now(timezone.utc) - timedelta(days=2, hours=3, minutes=15)
+        ).isoformat()
         result = status_service._format_duration(past)
         assert "2d" in result
         assert "3h" in result
@@ -162,7 +173,8 @@ class TestGetServerStatus:
         server_service.resolve_hostname_async.return_value = "192.168.1.50"
 
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"},
         )
 
         assert result["name"] == "srv1"
@@ -178,25 +190,32 @@ class TestGetServerStatus:
         server_service.resolve_hostname_async.return_value = "192.168.1.50"
 
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"},
         )
 
         assert result["online"] is False
 
     @pytest.mark.asyncio
-    async def test_server_without_plug_has_no_power(self, status_service, server_service):
+    async def test_server_without_plug_has_no_power(
+        self, status_service, server_service
+    ):
         """Server without plug has no power data"""
         result = await status_service.get_server_status(
-            "srv2", {"hostname": "server2.local", "mac": "AA:BB:CC:DD:EE:02", "plug": None}
+            "srv2",
+            {"hostname": "server2.local", "mac": "AA:BB:CC:DD:EE:02", "plug": None},
         )
 
         assert "power" not in result
 
     @pytest.mark.asyncio
-    async def test_server_with_plug_includes_power(self, status_service, server_service, plug_service):
+    async def test_server_with_plug_includes_power(
+        self, status_service, server_service, plug_service
+    ):
         """Server with plug includes power data"""
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"},
         )
 
         assert "power" in result
@@ -208,11 +227,14 @@ class TestGetServerStatus:
         """Server with state includes uptime duration"""
         config.get_server_state.return_value = {
             "online": True,
-            "last_change": (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat(),
+            "last_change": (
+                datetime.now(timezone.utc) - timedelta(hours=5)
+            ).isoformat(),
         }
 
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": None}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": None},
         )
 
         assert "uptime" in result
@@ -223,23 +245,29 @@ class TestGetServerStatus:
         server_service.ping_async.return_value = False
         config.get_server_state.return_value = {
             "online": False,
-            "last_change": (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat(),
+            "last_change": (
+                datetime.now(timezone.utc) - timedelta(minutes=30)
+            ).isoformat(),
         }
 
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": None}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": None},
         )
 
         assert result["online"] is False
         assert "downtime" in result
 
     @pytest.mark.asyncio
-    async def test_plug_fetch_failure_does_not_break_server(self, status_service, server_service, plug_service):
+    async def test_plug_fetch_failure_does_not_break_server(
+        self, status_service, server_service, plug_service
+    ):
         """Server status still works if plug power fetch fails"""
         plug_service.get_full_status.side_effect = Exception("Plug offline")
 
         result = await status_service.get_server_status(
-            "srv1", {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"}
+            "srv1",
+            {"hostname": "server1.local", "mac": "AA:BB:CC:DD:EE:01", "plug": "plug1"},
         )
 
         assert result["name"] == "srv1"
@@ -274,12 +302,21 @@ class TestGetAllStatus:
         assert summary["total_power"] == 100.0  # 50W * 2 plugs
 
     @pytest.mark.asyncio
-    async def test_handles_partial_failures(self, status_service, config, plug_service, server_service):
+    async def test_handles_partial_failures(
+        self, status_service, config, plug_service, server_service
+    ):
         """Continues when some checks fail"""
         # First plug succeeds, second throws (caught by get_plug_status)
         plug_service.get_full_status.side_effect = [
-            {"on": True, "signal_level": 3, "current_power": 50.0,
-             "today_runtime": 0, "today_energy": 0, "month_runtime": 0, "month_energy": 0},
+            {
+                "on": True,
+                "signal_level": 3,
+                "current_power": 50.0,
+                "today_runtime": 0,
+                "today_energy": 0,
+                "month_runtime": 0,
+                "month_energy": 0,
+            },
             Exception("timeout"),
         ]
 

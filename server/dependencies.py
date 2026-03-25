@@ -1,18 +1,18 @@
 """Dependency injection for FastAPI endpoints"""
 
 import os
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends
 
 from .config import Config
-from .plug_service import PlugService
-from .server_service import ServerService
-from .power_service import PowerControlService
-from .status_service import StatusService
 from .event_service import EventService
+from .plug_service import PlugService
+from .power_service import PowerControlService
+from .server_service import ServerService
+from .status_service import StatusService
 
 
 class ServiceContainer:

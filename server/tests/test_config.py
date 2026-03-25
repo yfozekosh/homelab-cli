@@ -1,5 +1,6 @@
 """Test electricity price endpoints"""
 
+
 class TestElectricityPrice:
     def test_get_price_returns_200(self, api_client):
         response = api_client.get("/settings/electricity-price")

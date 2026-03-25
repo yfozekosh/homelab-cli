@@ -8,7 +8,6 @@ All modules then use logging.getLogger(__name__) as usual.
 import logging
 import sys
 
-
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 

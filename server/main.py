@@ -2,38 +2,38 @@
 FastAPI Server for Homelab Management
 """
 
-import os
+import asyncio
 import json
 import logging
-import asyncio
-from typing import Callable, Coroutine, Any
+import os
 from contextlib import asynccontextmanager
+from typing import Any, Callable, Coroutine
 
-from fastapi import FastAPI, HTTPException, Depends, Security, status
-from fastapi.security import APIKeyHeader
+from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import APIKeyHeader
 
+from .dependencies import (
+    ConfigDep,
+    EventServiceDep,
+    PlugServiceDep,
+    PowerServiceDep,
+    ServerServiceDep,
+    ServiceContainer,
+    StatusServiceDep,
+    get_service_container,
+)
+from .logging_config import setup_logging
 from .schemas import (
+    ElectricityPrice,
     PlugCreate,
     PlugRemove,
     PlugUpdate,
-    ServerCreate,
-    ServerUpdate,
-    ServerRemove,
     PowerAction,
-    ElectricityPrice,
+    ServerCreate,
+    ServerRemove,
+    ServerUpdate,
 )
-from .dependencies import (
-    get_service_container,
-    ServiceContainer,
-    ConfigDep,
-    PlugServiceDep,
-    ServerServiceDep,
-    PowerServiceDep,
-    StatusServiceDep,
-    EventServiceDep,
-)
-from .logging_config import setup_logging
 
 # Setup logging (must happen before any getLogger calls)
 setup_logging()
@@ -55,14 +55,14 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 
 async def create_sse_generator(
     operation_func: Callable[[Callable[[str], None]], Coroutine[Any, Any, dict]],
-    operation_name: str
+    operation_name: str,
 ):
     """Create SSE event generator for power operations
-    
+
     Args:
         operation_func: Async function that takes a progress callback and returns result dict
         operation_name: Name of operation for logging (e.g., "power on", "power off")
-        
+
     Yields:
         SSE formatted events
     """
@@ -111,9 +111,11 @@ async def lifespan(app: FastAPI):
     container = get_service_container()
     logger.info("Service container initialized")
     logger.info("Config path: %s", container.config.config_path)
-    logger.info("Plugs configured: %d, Servers configured: %d",
-                len(container.config.list_plugs()),
-                len(container.config.list_servers()))
+    logger.info(
+        "Plugs configured: %d, Servers configured: %d",
+        len(container.config.list_plugs()),
+        len(container.config.list_servers()),
+    )
 
     yield
 
@@ -328,7 +330,9 @@ async def get_server(name: str, config: ConfigDep, server_service: ServerService
 
 
 @app.post("/power/on", dependencies=[Depends(verify_api_key)])
-async def power_on_server(action: PowerAction, config: ConfigDep, power_service: PowerServiceDep):
+async def power_on_server(
+    action: PowerAction, config: ConfigDep, power_service: PowerServiceDep
+):
     """Power on a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
@@ -356,12 +360,14 @@ async def power_on_server(action: PowerAction, config: ConfigDep, power_service:
 
     return StreamingResponse(
         create_sse_generator(power_on_operation, "power on server"),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
 
 
 @app.post("/power/off", dependencies=[Depends(verify_api_key)])
-async def power_off_server(action: PowerAction, config: ConfigDep, power_service: PowerServiceDep):
+async def power_off_server(
+    action: PowerAction, config: ConfigDep, power_service: PowerServiceDep
+):
     """Power off a server with SSE streaming"""
     server = config.get_server(action.name)
     if not server:
@@ -383,7 +389,7 @@ async def power_off_server(action: PowerAction, config: ConfigDep, power_service
 
     return StreamingResponse(
         create_sse_generator(power_off_operation, "power off server"),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
 
 
@@ -402,6 +408,7 @@ async def get_electricity_price(config: ConfigDep):
     """Get current electricity price per kWh"""
     price = config.get_electricity_price()
     return {"price": price}
+
 
 @app.get("/alerts/notify-deploy-stage", dependencies=[Depends(verify_api_key)])
 async def notify_deploy_stage(stage: str, event_service: EventServiceDep):
@@ -427,6 +434,7 @@ async def emit_event(event_name: str, data: dict, event_service: EventServiceDep
 
 if __name__ == "__main__":
     import uvicorn
+
     from .logging_config import LOG_FORMAT
 
     uvicorn.run(
@@ -451,9 +459,17 @@ if __name__ == "__main__":
                 },
             },
             "loggers": {
-                "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+                "uvicorn": {
+                    "handlers": ["default"],
+                    "level": "INFO",
+                    "propagate": False,
+                },
                 "uvicorn.error": {"level": "INFO"},
-                "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
+                "uvicorn.access": {
+                    "handlers": ["default"],
+                    "level": "INFO",
+                    "propagate": False,
+                },
             },
         },
     )

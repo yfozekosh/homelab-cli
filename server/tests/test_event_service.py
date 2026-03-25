@@ -1,6 +1,7 @@
 """Tests for EventService"""
 
 import pytest
+
 from server.event_service import EventService
 
 
@@ -41,7 +42,7 @@ class TestEventService:
 
         event_service.add_listener("test_event", callback1)
         event_service.add_listener("test_event", callback2)
-        
+
         await event_service.emit("test_event", {"count": 1})
 
         assert len(callback1_called) == 1
@@ -70,7 +71,7 @@ class TestEventService:
 
         event_service.add_listener("test_event", callback1)
         event_service.add_listener("test_event", callback2)
-        
+
         # Should not raise, callback2 should still be called
         await event_service.emit("test_event", {"test": "data"})
 
@@ -87,9 +88,9 @@ class TestEventService:
 
         event_service.add_listener("event1", callback)
         event_service.add_listener("event2", callback)
-        
+
         event_service.clear_listeners("event1")
-        
+
         await event_service.emit("event1", {"data": 1})
         await event_service.emit("event2", {"data": 2})
 
@@ -107,9 +108,9 @@ class TestEventService:
 
         event_service.add_listener("event1", callback)
         event_service.add_listener("event2", callback)
-        
+
         event_service.clear_listeners()
-        
+
         await event_service.emit("event1", {"data": 1})
         await event_service.emit("event2", {"data": 2})
 
@@ -125,7 +126,7 @@ class TestEventService:
             callback_called.append(data)
 
         event_service.add_listener("test_event", callback)
-        
+
         await event_service.emit("test_event", {"count": 1})
         await event_service.emit("test_event", {"count": 2})
         await event_service.emit("test_event", {"count": 3})
@@ -144,7 +145,7 @@ class TestEventService:
             callback_called.append(data)
 
         event_service.add_listener("test_event", callback)
-        
+
         # Test different data types
         await event_service.emit("test_event", "string")
         await event_service.emit("test_event", 123)

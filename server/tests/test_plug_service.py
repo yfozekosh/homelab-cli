@@ -1,9 +1,10 @@
 """Unit tests for PlugService"""
 
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from server.plug_service import PlugService
 
@@ -11,10 +12,10 @@ from server.plug_service import PlugService
 @pytest.fixture
 def mock_env():
     """Mock TAPO credentials"""
-    with patch.dict(os.environ, {
-        'TAPO_USERNAME': 'test@example.com',
-        'TAPO_PASSWORD': 'testpassword'
-    }):
+    with patch.dict(
+        os.environ,
+        {"TAPO_USERNAME": "test@example.com", "TAPO_PASSWORD": "testpassword"},
+    ):
         yield
 
 
@@ -30,18 +31,18 @@ class TestPlugServiceInit:
     def test_init_with_credentials(self, mock_env):
         """Successfully initialize with credentials"""
         service = PlugService()
-        assert service.username == 'test@example.com'
-        assert service.password == 'testpassword'
+        assert service.username == "test@example.com"
+        assert service.password == "testpassword"
 
     def test_init_without_username_raises(self):
         """Raises ValueError without TAPO_USERNAME"""
-        with patch.dict(os.environ, {'TAPO_PASSWORD': 'test'}, clear=True):
+        with patch.dict(os.environ, {"TAPO_PASSWORD": "test"}, clear=True):
             with pytest.raises(ValueError, match="TAPO_USERNAME"):
                 PlugService()
 
     def test_init_without_password_raises(self):
         """Raises ValueError without TAPO_PASSWORD"""
-        with patch.dict(os.environ, {'TAPO_USERNAME': 'test'}, clear=True):
+        with patch.dict(os.environ, {"TAPO_USERNAME": "test"}, clear=True):
             with pytest.raises(ValueError, match="TAPO_PASSWORD"):
                 PlugService()
 
@@ -55,9 +56,9 @@ class TestGetClient:
         mock_device = AsyncMock()
         mock_client = MagicMock()
         mock_client.p110 = AsyncMock(return_value=mock_device)
-        
-        with patch('server.plug_service.ApiClient', return_value=mock_client):
-            result = await plug_service.get_client('192.168.1.100')
+
+        with patch("server.plug_service.ApiClient", return_value=mock_client):
+            result = await plug_service.get_client("192.168.1.100")
             assert result == mock_device
 
     @pytest.mark.asyncio
@@ -65,10 +66,10 @@ class TestGetClient:
         """Raises on timeout"""
         mock_client = MagicMock()
         mock_client.p110 = AsyncMock(side_effect=asyncio.TimeoutError())
-        
-        with patch('server.plug_service.ApiClient', return_value=mock_client):
+
+        with patch("server.plug_service.ApiClient", return_value=mock_client):
             with pytest.raises(asyncio.TimeoutError):
-                await plug_service.get_client('192.168.1.100', timeout=0.1)
+                await plug_service.get_client("192.168.1.100", timeout=0.1)
 
 
 class TestTurnOn:
@@ -79,9 +80,9 @@ class TestTurnOn:
         """Successfully turn on plug"""
         mock_device = AsyncMock()
         mock_device.on = AsyncMock()
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            await plug_service.turn_on('192.168.1.100')
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            await plug_service.turn_on("192.168.1.100")
             mock_device.on.assert_called_once()
 
 
@@ -93,9 +94,9 @@ class TestTurnOff:
         """Successfully turn off plug"""
         mock_device = AsyncMock()
         mock_device.off = AsyncMock()
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            await plug_service.turn_off('192.168.1.100')
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            await plug_service.turn_off("192.168.1.100")
             mock_device.off.assert_called_once()
 
 
@@ -109,9 +110,9 @@ class TestGetPower:
         mock_energy.current_power = 42.5
         mock_device = AsyncMock()
         mock_device.get_current_power = AsyncMock(return_value=mock_energy)
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            result = await plug_service.get_power('192.168.1.100')
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            result = await plug_service.get_power("192.168.1.100")
             assert result == 42.5
 
 
@@ -126,17 +127,19 @@ class TestGetStatus:
         mock_info.signal_level = 3
         mock_device = AsyncMock()
         mock_device.get_device_info = AsyncMock(return_value=mock_info)
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            result = await plug_service.get_status('192.168.1.100')
-            assert result == {'on': True, 'signal_level': 3}
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            result = await plug_service.get_status("192.168.1.100")
+            assert result == {"on": True, "signal_level": 3}
 
     @pytest.mark.asyncio
     async def test_get_status_failure_returns_defaults(self, plug_service):
         """Returns default values on failure"""
-        with patch.object(plug_service, 'get_client', side_effect=Exception('Connection failed')):
-            result = await plug_service.get_status('192.168.1.100')
-            assert result == {'on': False, 'signal_level': 0}
+        with patch.object(
+            plug_service, "get_client", side_effect=Exception("Connection failed")
+        ):
+            result = await plug_service.get_status("192.168.1.100")
+            assert result == {"on": False, "signal_level": 0}
 
 
 class TestGetEnergyUsage:
@@ -147,38 +150,38 @@ class TestGetEnergyUsage:
         """Successfully get energy usage"""
         mock_current = MagicMock()
         mock_current.current_power = 50.0
-        
+
         mock_energy = MagicMock()
         mock_energy.today_runtime = 120
         mock_energy.today_energy = 500
         mock_energy.month_runtime = 3600
         mock_energy.month_energy = 15000
-        
+
         mock_device = AsyncMock()
         mock_device.get_current_power = AsyncMock(return_value=mock_current)
         mock_device.get_energy_usage = AsyncMock(return_value=mock_energy)
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            result = await plug_service.get_energy_usage('192.168.1.100')
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            result = await plug_service.get_energy_usage("192.168.1.100")
             assert result == {
-                'current_power': 50.0,
-                'today_runtime': 120,
-                'today_energy': 500,
-                'month_runtime': 3600,
-                'month_energy': 15000,
+                "current_power": 50.0,
+                "today_runtime": 120,
+                "today_energy": 500,
+                "month_runtime": 3600,
+                "month_energy": 15000,
             }
 
     @pytest.mark.asyncio
     async def test_get_energy_usage_failure_returns_zeros(self, plug_service):
         """Returns zeros on failure"""
-        with patch.object(plug_service, 'get_client', side_effect=Exception('Error')):
-            result = await plug_service.get_energy_usage('192.168.1.100')
+        with patch.object(plug_service, "get_client", side_effect=Exception("Error")):
+            result = await plug_service.get_energy_usage("192.168.1.100")
             assert result == {
-                'current_power': 0,
-                'today_runtime': 0,
-                'today_energy': 0,
-                'month_runtime': 0,
-                'month_energy': 0,
+                "current_power": 0,
+                "today_runtime": 0,
+                "today_energy": 0,
+                "month_runtime": 0,
+                "month_energy": 0,
             }
 
 
@@ -191,32 +194,32 @@ class TestGetFullStatus:
         mock_info = MagicMock()
         mock_info.device_on = True
         mock_info.signal_level = 3
-        
+
         mock_power = MagicMock()
         mock_power.current_power = 50.0
-        
+
         mock_energy = MagicMock()
         mock_energy.today_runtime = 120
         mock_energy.today_energy = 500
         mock_energy.month_runtime = 3600
         mock_energy.month_energy = 15000
-        
+
         mock_device = AsyncMock()
         mock_device.get_device_info = AsyncMock(return_value=mock_info)
         mock_device.get_current_power = AsyncMock(return_value=mock_power)
         mock_device.get_energy_usage = AsyncMock(return_value=mock_energy)
-        
-        with patch.object(plug_service, 'get_client', return_value=mock_device):
-            result = await plug_service.get_full_status('192.168.1.100')
-            assert result['on'] is True
-            assert result['signal_level'] == 3
-            assert result['current_power'] == 50.0
+
+        with patch.object(plug_service, "get_client", return_value=mock_device):
+            result = await plug_service.get_full_status("192.168.1.100")
+            assert result["on"] is True
+            assert result["signal_level"] == 3
+            assert result["current_power"] == 50.0
 
     @pytest.mark.asyncio
     async def test_get_full_status_failure_returns_offline(self, plug_service):
         """Returns offline status on failure"""
-        with patch.object(plug_service, 'get_client', side_effect=Exception('Error')):
-            result = await plug_service.get_full_status('192.168.1.100')
-            assert result['on'] is False
-            assert result['signal_level'] == 0
-            assert result['current_power'] == 0
+        with patch.object(plug_service, "get_client", side_effect=Exception("Error")):
+            result = await plug_service.get_full_status("192.168.1.100")
+            assert result["on"] is False
+            assert result["signal_level"] == 0
+            assert result["current_power"] == 0

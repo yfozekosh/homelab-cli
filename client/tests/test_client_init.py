@@ -3,13 +3,14 @@
 Unit tests for Homelab CLI Client
 """
 
-import pytest
 import os
-from unittest.mock import patch, mock_open
 from pathlib import Path
+from unittest.mock import mock_open, patch
+
+import pytest
 
 # Import the client
-from homelab_client import HomelabClient, ConfigurationError
+from homelab_client import ConfigurationError, HomelabClient
 
 
 class TestHomelabClientInit:

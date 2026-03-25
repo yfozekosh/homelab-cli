@@ -1,11 +1,13 @@
 """Power control operations"""
 
-import sys
 import json
+import sys
+
 import requests
+
 from .api_client import APIClient
-from .exceptions import APIError, ConnectionError
 from .constants import POWER_OPERATION_TIMEOUT
+from .exceptions import APIError, ConnectionError
 
 
 class PowerManager:
@@ -16,7 +18,7 @@ class PowerManager:
 
     def _stream_power_operation(self, endpoint: str, data: dict, action_verb: str):
         """Stream power operation with real-time logs
-        
+
         Raises:
             APIError: If the operation fails
             ConnectionError: If cannot connect to server
@@ -103,10 +105,10 @@ class PowerManager:
 
     def power_on(self, name: str) -> bool:
         """Power on a server with real-time progress
-        
+
         Returns:
             bool: True if successful
-            
+
         Raises:
             APIError: If the operation fails
         """
@@ -125,7 +127,7 @@ class PowerManager:
 
     def power_off(self, name: str) -> bool:
         """Power off a server with real-time progress
-        
+
         Returns:
             bool: True if successful
         """

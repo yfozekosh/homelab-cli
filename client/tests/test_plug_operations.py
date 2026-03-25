@@ -3,10 +3,11 @@
 Unit tests for Homelab CLI Client
 """
 
-import pytest
 import os
-from unittest.mock import Mock, patch
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 import requests
 
 # Import the client

@@ -1,38 +1,35 @@
 """Unit tests for dependency injection container"""
 
-import os
-import pytest
-import tempfile
 import json
+import os
+import tempfile
 from unittest.mock import patch
 
+import pytest
+
+from server.config import Config
 from server.dependencies import (
     ServiceContainer,
-    get_service_container,
     get_config,
-    get_plug_service,
-    get_server_service,
-    get_power_service,
-    get_status_service,
     get_event_service,
+    get_plug_service,
+    get_power_service,
+    get_server_service,
+    get_service_container,
+    get_status_service,
 )
-from server.config import Config
-from server.plug_service import PlugService
-from server.server_service import ServerService
-from server.power_service import PowerControlService
-from server.status_service import StatusService
 from server.event_service import EventService
+from server.plug_service import PlugService
+from server.power_service import PowerControlService
+from server.server_service import ServerService
+from server.status_service import StatusService
 
 
 @pytest.fixture
 def temp_config():
     """Create a temporary config file"""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        json.dump({
-            "plugs": {},
-            "servers": {},
-            "electricity_price": 0.25
-        }, f)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump({"plugs": {}, "servers": {}, "electricity_price": 0.25}, f)
         temp_path = f.name
     yield temp_path
     os.unlink(temp_path)

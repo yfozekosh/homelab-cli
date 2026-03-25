@@ -4,7 +4,7 @@ Status Display Module - Handles adaptive terminal display for homelab status
 """
 
 import os
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 
 class StatusDisplay:
@@ -113,7 +113,9 @@ class StatusDisplay:
                     prev_m_part = f" prev: {self._c('CYAN', prev_m_wh, use_color)}"
                     if show_costs and power.get("prev_month_cost", 0) > 0:
                         prev_m_cost = f"{power['prev_month_cost']}€"
-                        prev_m_part += f" ({self._c('MAGENTA', prev_m_cost, use_color)})"
+                        prev_m_part += (
+                            f" ({self._c('MAGENTA', prev_m_cost, use_color)})"
+                        )
                     month_line += f"  |{prev_m_part}"
                 lines.append(month_line)
 

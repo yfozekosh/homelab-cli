@@ -1,12 +1,14 @@
 """Pytest configuration with in-process server for coverage"""
 
-import pytest
-import os
-import tempfile
-import shutil
 import json
+import os
+import shutil
+import tempfile
 from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_env():
@@ -16,12 +18,14 @@ def setup_test_env():
     os.environ["TAPO_USERNAME"] = "test@example.com"
     os.environ["TAPO_PASSWORD"] = "test-password"
 
+
 @pytest.fixture(scope="session")
 def test_config_dir():
     """Create temporary directory for test configs"""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 @pytest.fixture(scope="session")
 def test_config_path(test_config_dir, setup_test_env):
@@ -43,16 +47,19 @@ def test_config_path(test_config_dir, setup_test_env):
     }
     with open(config_path, "w") as f:
         json.dump(config_data, f)
-    
+
     # Set CONFIG_PATH before importing server
     os.environ["CONFIG_PATH"] = str(config_path)
     return config_path
+
 
 @pytest.fixture(scope="session")
 def app(test_config_path):
     """Get FastAPI app instance"""
     from server.main import app
+
     return app
+
 
 @pytest.fixture(scope="session")
 def client(app):
@@ -60,31 +67,34 @@ def client(app):
     with TestClient(app) as test_client:
         yield test_client
 
+
 @pytest.fixture
 def api_client(client):
     """HTTP client with authentication"""
+
     class APIClient:
         def __init__(self, test_client):
             self.client = test_client
             self.headers = {"X-API-Key": "test-api-key"}
-        
+
         def get(self, path, **kwargs):
             kwargs.setdefault("headers", {}).update(self.headers)
             return self.client.get(path, **kwargs)
-        
+
         def post(self, path, **kwargs):
             kwargs.setdefault("headers", {}).update(self.headers)
             return self.client.post(path, **kwargs)
-        
+
         def put(self, path, **kwargs):
             kwargs.setdefault("headers", {}).update(self.headers)
             return self.client.put(path, **kwargs)
-        
+
         def delete(self, path, **kwargs):
             kwargs.setdefault("headers", {}).update(self.headers)
             return self.client.delete(path, **kwargs)
-    
+
     return APIClient(client)
+
 
 @pytest.fixture
 def unauthenticated_client(client):

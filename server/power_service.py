@@ -5,7 +5,8 @@ Power Control Service - Orchestrates server power management
 import asyncio
 import logging
 import time
-from typing import Dict, Callable, Optional
+from typing import Callable, Dict, Optional
+
 from .plug_service import PlugService
 from .server_service import ServerService
 
@@ -57,7 +58,9 @@ class PowerControlService:
                     await self.plug_service.turn_off(plug_ip)
                     result["message"] = "Server failed to boot"
                     elapsed = time.time() - t0
-                    logger.warning("power_on %s: FAILED after %.1fs", server_name, elapsed)
+                    logger.warning(
+                        "power_on %s: FAILED after %.1fs", server_name, elapsed
+                    )
                     return result
 
         elapsed = time.time() - t0

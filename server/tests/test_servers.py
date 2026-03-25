@@ -1,5 +1,6 @@
 """Test server management endpoints"""
 
+
 class TestListServers:
     def test_list_servers_returns_200(self, api_client):
         response = api_client.get("/servers")
@@ -9,6 +10,7 @@ class TestListServers:
         response = api_client.get("/servers")
         data = response.json()
         assert "test-server" in data["servers"]
+
 
 class TestSSHHealthCheck:
     def test_ssh_healthcheck_returns_200(self, api_client):

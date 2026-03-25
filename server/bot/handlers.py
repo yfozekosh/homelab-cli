@@ -1,20 +1,20 @@
-import logging
 import asyncio
+import logging
 import time
 from typing import List
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from .keyboards import get_main_menu
 from .formatters import (
-    format_status_text,
-    format_server_status_text,
     format_plug_status_text,
-    format_short_status,
-    format_servers_summary,
     format_plugs_summary,
+    format_server_status_text,
+    format_servers_summary,
+    format_short_status,
+    format_status_text,
 )
+from .keyboards import get_main_menu
 
 logger = logging.getLogger(__name__)
 
@@ -583,7 +583,9 @@ class BotHandlers:
             # Fallback to basic info
             online = await self.server_service.ping_async(server_data["hostname"])
             status = "🟢 Online" if online else "🔴 Offline"
-            ip = await self.server_service.resolve_hostname_async(server_data["hostname"])
+            ip = await self.server_service.resolve_hostname_async(
+                server_data["hostname"]
+            )
 
             text = (
                 f"🖥️ *{server_name}*\n\n"
@@ -654,7 +656,9 @@ class BotHandlers:
         )
 
         async def _run():
-            logger.info("Power on %s: background task started (via button)", server_name)
+            logger.info(
+                "Power on %s: background task started (via button)", server_name
+            )
             t0 = time.time()
             logs = []
             last_update = [time.time()]
@@ -681,44 +685,73 @@ class BotHandlers:
                 elapsed = time.time() - t0
 
                 if result["success"]:
-                    logger.info("Power on %s: completed successfully in %.1fs", server_name, elapsed)
+                    logger.info(
+                        "Power on %s: completed successfully in %.1fs",
+                        server_name,
+                        elapsed,
+                    )
                     await query.edit_message_text(
                         f"✅ *{server_name}* powered on successfully!",
                         parse_mode="Markdown",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton(
-                                "📊 View Status",
-                                callback_data=f"server:{server_name}",
-                            )],
-                            [InlineKeyboardButton(
-                                "⬅️ Back to Servers", callback_data="servers"
-                            )],
-                        ]),
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "📊 View Status",
+                                        callback_data=f"server:{server_name}",
+                                    )
+                                ],
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Back to Servers", callback_data="servers"
+                                    )
+                                ],
+                            ]
+                        ),
                     )
                 else:
-                    logger.warning("Power on %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    logger.warning(
+                        "Power on %s: failed after %.1fs: %s",
+                        server_name,
+                        elapsed,
+                        result.get("message"),
+                    )
                     progress_text = "\n".join(logs[-5:]) if logs else "No logs"
                     await query.edit_message_text(
                         f"❌ Failed to power on *{server_name}*\n\n"
                         f"{result.get('message', 'Unknown error')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton(
-                                "⬅️ Back to Servers", callback_data="servers"
-                            )]
-                        ]),
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Back to Servers", callback_data="servers"
+                                    )
+                                ]
+                            ]
+                        ),
                     )
             except Exception as e:
                 elapsed = time.time() - t0
-                logger.error("Power on %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                logger.error(
+                    "Power on %s: error after %.1fs: %s",
+                    server_name,
+                    elapsed,
+                    e,
+                    exc_info=True,
+                )
                 await query.edit_message_text(
                     f"❌ Error: {str(e)}",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton(
-                            "⬅️ Back to Servers", callback_data="servers"
-                        )]
-                    ]),
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "⬅️ Back to Servers", callback_data="servers"
+                                )
+                            ]
+                        ]
+                    ),
                 )
 
         asyncio.create_task(_run())
@@ -752,7 +785,9 @@ class BotHandlers:
         )
 
         async def _run():
-            logger.info("Power off %s: background task started (via button)", server_name)
+            logger.info(
+                "Power off %s: background task started (via button)", server_name
+            )
             t0 = time.time()
             logs = []
             last_update = [time.time()]
@@ -779,44 +814,73 @@ class BotHandlers:
                 elapsed = time.time() - t0
 
                 if result["success"]:
-                    logger.info("Power off %s: completed successfully in %.1fs", server_name, elapsed)
+                    logger.info(
+                        "Power off %s: completed successfully in %.1fs",
+                        server_name,
+                        elapsed,
+                    )
                     await query.edit_message_text(
                         f"✅ *{server_name}* powered off successfully!",
                         parse_mode="Markdown",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton(
-                                "📊 View Status",
-                                callback_data=f"server:{server_name}",
-                            )],
-                            [InlineKeyboardButton(
-                                "⬅️ Back to Servers", callback_data="servers"
-                            )],
-                        ]),
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "📊 View Status",
+                                        callback_data=f"server:{server_name}",
+                                    )
+                                ],
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Back to Servers", callback_data="servers"
+                                    )
+                                ],
+                            ]
+                        ),
                     )
                 else:
-                    logger.warning("Power off %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    logger.warning(
+                        "Power off %s: failed after %.1fs: %s",
+                        server_name,
+                        elapsed,
+                        result.get("message"),
+                    )
                     progress_text = "\n".join(logs[-5:]) if logs else "No logs"
                     await query.edit_message_text(
                         f"⚠️ *{server_name}* powered off (with warnings)\n\n"
                         f"{result.get('message', '')}\n\n"
                         f"```\n{progress_text}\n```",
                         parse_mode="Markdown",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton(
-                                "⬅️ Back to Servers", callback_data="servers"
-                            )]
-                        ]),
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Back to Servers", callback_data="servers"
+                                    )
+                                ]
+                            ]
+                        ),
                     )
             except Exception as e:
                 elapsed = time.time() - t0
-                logger.error("Power off %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                logger.error(
+                    "Power off %s: error after %.1fs: %s",
+                    server_name,
+                    elapsed,
+                    e,
+                    exc_info=True,
+                )
                 await query.edit_message_text(
                     f"❌ Error: {str(e)}",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton(
-                            "⬅️ Back to Servers", callback_data="servers"
-                        )]
-                    ]),
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "⬅️ Back to Servers", callback_data="servers"
+                                )
+                            ]
+                        ]
+                    ),
                 )
 
         asyncio.create_task(_run())
@@ -1049,7 +1113,9 @@ class BotHandlers:
         )
 
         async def _run():
-            logger.info("Power on %s: background task started (via /on command)", server_name)
+            logger.info(
+                "Power on %s: background task started (via /on command)", server_name
+            )
             t0 = time.time()
             logs = []
             last_update = [time.time()]
@@ -1076,20 +1142,33 @@ class BotHandlers:
                 elapsed = time.time() - t0
 
                 if result["success"]:
-                    logger.info("Power on %s: completed successfully in %.1fs", server_name, elapsed)
+                    logger.info(
+                        "Power on %s: completed successfully in %.1fs",
+                        server_name,
+                        elapsed,
+                    )
                     await status_msg.edit_text(
                         f"✅ *{server_name}* powered on successfully!\n\n"
                         f"Use `/status {server_name}` to check status.",
                         parse_mode="Markdown",
                         reply_markup=InlineKeyboardMarkup(
-                            [[InlineKeyboardButton(
-                                "📊 View Status",
-                                callback_data=f"server:{server_name}",
-                            )]]
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "📊 View Status",
+                                        callback_data=f"server:{server_name}",
+                                    )
+                                ]
+                            ]
                         ),
                     )
                 else:
-                    logger.warning("Power on %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    logger.warning(
+                        "Power on %s: failed after %.1fs: %s",
+                        server_name,
+                        elapsed,
+                        result.get("message"),
+                    )
                     progress_text = "\n".join(logs[-5:]) if logs else "No logs"
                     await status_msg.edit_text(
                         f"❌ Failed to power on *{server_name}*\n\n"
@@ -1099,7 +1178,13 @@ class BotHandlers:
                     )
             except Exception as e:
                 elapsed = time.time() - t0
-                logger.error("Power on %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                logger.error(
+                    "Power on %s: error after %.1fs: %s",
+                    server_name,
+                    elapsed,
+                    e,
+                    exc_info=True,
+                )
                 await status_msg.edit_text(f"❌ Error: {str(e)}")
 
         asyncio.create_task(_run())
@@ -1130,7 +1215,9 @@ class BotHandlers:
         )
 
         async def _run():
-            logger.info("Power off %s: background task started (via /off command)", server_name)
+            logger.info(
+                "Power off %s: background task started (via /off command)", server_name
+            )
             t0 = time.time()
             logs = []
             last_update = [time.time()]
@@ -1157,19 +1244,32 @@ class BotHandlers:
                 elapsed = time.time() - t0
 
                 if result["success"]:
-                    logger.info("Power off %s: completed successfully in %.1fs", server_name, elapsed)
+                    logger.info(
+                        "Power off %s: completed successfully in %.1fs",
+                        server_name,
+                        elapsed,
+                    )
                     await status_msg.edit_text(
                         f"✅ *{server_name}* powered off successfully!",
                         parse_mode="Markdown",
                         reply_markup=InlineKeyboardMarkup(
-                            [[InlineKeyboardButton(
-                                "📊 View Status",
-                                callback_data=f"server:{server_name}",
-                            )]]
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "📊 View Status",
+                                        callback_data=f"server:{server_name}",
+                                    )
+                                ]
+                            ]
                         ),
                     )
                 else:
-                    logger.warning("Power off %s: failed after %.1fs: %s", server_name, elapsed, result.get("message"))
+                    logger.warning(
+                        "Power off %s: failed after %.1fs: %s",
+                        server_name,
+                        elapsed,
+                        result.get("message"),
+                    )
                     progress_text = "\n".join(logs[-5:]) if logs else "No logs"
                     await status_msg.edit_text(
                         f"⚠️ *{server_name}* powered off (with warnings)\n\n"
@@ -1179,7 +1279,13 @@ class BotHandlers:
                     )
             except Exception as e:
                 elapsed = time.time() - t0
-                logger.error("Power off %s: error after %.1fs: %s", server_name, elapsed, e, exc_info=True)
+                logger.error(
+                    "Power off %s: error after %.1fs: %s",
+                    server_name,
+                    elapsed,
+                    e,
+                    exc_info=True,
+                )
                 await status_msg.edit_text(f"❌ Error: {str(e)}")
 
         asyncio.create_task(_run())

@@ -2,11 +2,12 @@
 Status Service - Aggregates status information for all devices
 """
 
-import logging
 import asyncio
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Dict
+
 from .config import Config
 from .plug_service import PlugService
 from .server_service import ServerService
@@ -71,7 +72,10 @@ class StatusService:
             elapsed = time.monotonic() - t0
             logger.debug(
                 "get_plug_status %s: done in %.2fs (power=%.1fW, on=%s)",
-                name, elapsed, status["current_power"], status["on"],
+                name,
+                elapsed,
+                status["current_power"],
+                status["on"],
             )
 
             return {
@@ -89,9 +93,17 @@ class StatusService:
                 "month_runtime": round(month_hours, 1),
                 # Previous day/month values if device or datastore provides them
                 "prev_day_energy": status.get("prev_day_energy"),
-                "prev_day_cost": round(status.get("prev_day_cost", 0), 4) if status.get("prev_day_cost") is not None else None,
+                "prev_day_cost": (
+                    round(status.get("prev_day_cost", 0), 4)
+                    if status.get("prev_day_cost") is not None
+                    else None
+                ),
                 "prev_month_energy": status.get("prev_month_energy"),
-                "prev_month_cost": round(status.get("prev_month_cost", 0), 4) if status.get("prev_month_cost") is not None else None,
+                "prev_month_cost": (
+                    round(status.get("prev_month_cost", 0), 4)
+                    if status.get("prev_month_cost") is not None
+                    else None
+                ),
             }
         except Exception as e:
             elapsed = time.monotonic() - t0
@@ -166,10 +178,20 @@ class StatusService:
                         "month_cost": round(month_cost, 4),
                         # Previous day/month if available
                         "prev_day_energy": plug_status.get("prev_day_energy"),
-                        "prev_day_cost": round(plug_status.get("prev_day_cost", 0), 4) if plug_status.get("prev_day_cost") is not None else None,
+                        "prev_day_cost": (
+                            round(plug_status.get("prev_day_cost", 0), 4)
+                            if plug_status.get("prev_day_cost") is not None
+                            else None
+                        ),
                         "prev_month_energy": plug_status.get("prev_month_energy"),
-                        "prev_month_cost": round(plug_status.get("prev_month_cost", 0), 4) if plug_status.get("prev_month_cost") is not None else None,
-                        "month_runtime": plug_status.get("month_runtime", 0),  # Add runtime in minutes
+                        "prev_month_cost": (
+                            round(plug_status.get("prev_month_cost", 0), 4)
+                            if plug_status.get("prev_month_cost") is not None
+                            else None
+                        ),
+                        "month_runtime": plug_status.get(
+                            "month_runtime", 0
+                        ),  # Add runtime in minutes
                     }
                 except Exception as e:
                     logger.warning(f"Failed to get power info for {name}: {e}")
@@ -177,7 +199,10 @@ class StatusService:
         elapsed = time.monotonic() - t0
         logger.debug(
             "get_server_status %s: done in %.2fs (online=%s, ip=%s)",
-            name, elapsed, online, ip,
+            name,
+            elapsed,
+            online,
+            ip,
         )
 
         return result
@@ -192,13 +217,13 @@ class StatusService:
 
         logger.info(
             "get_all_status: checking %d plugs + %d servers in parallel",
-            len(plugs), len(servers),
+            len(plugs),
+            len(servers),
         )
 
         # Check all plugs and servers in parallel
         plug_tasks = [
-            self.get_plug_status(name, plug_data)
-            for name, plug_data in plugs.items()
+            self.get_plug_status(name, plug_data) for name, plug_data in plugs.items()
         ]
         server_tasks = [
             self.get_server_status(name, server_data)
@@ -215,7 +240,11 @@ class StatusService:
 
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                target = list(plugs.keys())[i] if i < plugs_count else list(servers.keys())[i - plugs_count]
+                target = (
+                    list(plugs.keys())[i]
+                    if i < plugs_count
+                    else list(servers.keys())[i - plugs_count]
+                )
                 logger.error("Status check failed for %s: %s", target, result)
                 continue
             if i < plugs_count:
@@ -229,8 +258,12 @@ class StatusService:
         total_power = sum(p.get("current_power", 0) for p in plugs_status)
         logger.info(
             "get_all_status: done in %.2fs — %d/%d servers online, %d/%d plugs online, %.1fW total",
-            elapsed, servers_online, len(servers_status),
-            plugs_online, len(plugs_status), total_power,
+            elapsed,
+            servers_online,
+            len(servers_status),
+            plugs_online,
+            len(plugs_status),
+            total_power,
         )
 
         # Calculate summary

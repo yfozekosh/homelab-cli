@@ -2,11 +2,12 @@
 Server management service
 """
 
-import subprocess
-import socket
+import asyncio
 import logging
 import os
-import asyncio
+import socket
+import subprocess
+
 from wakeonlan import send_magic_packet
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,7 @@
 
 import logging
 
-from server.logging_config import setup_logging, LOG_FORMAT, LOG_DATE_FORMAT
+from server.logging_config import LOG_DATE_FORMAT, LOG_FORMAT, setup_logging
 
 
 class TestLoggingConfig:

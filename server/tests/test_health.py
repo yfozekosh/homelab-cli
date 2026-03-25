@@ -21,11 +21,17 @@ class TestHealth:
 class TestAuthentication:
     def test_missing_api_key_returns_403(self, unauthenticated_client):
         response = unauthenticated_client.get("/plugs")
-        assert response.status_code in [401, 403]  # Either is acceptable for missing auth
+        assert response.status_code in [
+            401,
+            403,
+        ]  # Either is acceptable for missing auth
 
     def test_wrong_api_key_returns_401(self, server_process):
         import requests
-        response = requests.get(f"{server_process}/plugs", headers={"X-API-Key": "wrong-key"})
+
+        response = requests.get(
+            f"{server_process}/plugs", headers={"X-API-Key": "wrong-key"}
+        )
         assert response.status_code == 401
 
     def test_valid_api_key_works(self, api_client):

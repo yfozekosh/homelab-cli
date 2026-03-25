@@ -4,8 +4,8 @@ Unit tests for Homelab CLI Client
 """
 
 import os
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 # Import the client
 from homelab_client import HomelabClient

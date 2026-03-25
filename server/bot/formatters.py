@@ -1,25 +1,29 @@
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
 
 def format_short_status(status: Dict) -> str:
     """Format short status summary for main menu"""
     summary = status["summary"]
     lines = []
-    
+
     lines.append("📊 *Quick Status:*")
-    lines.append(f"  🖥️ Servers: {summary['servers_online']}/{summary['servers_total']} online")
+    lines.append(
+        f"  🖥️ Servers: {summary['servers_online']}/{summary['servers_total']} online"
+    )
     lines.append(f"  🔌 Plugs: {summary['plugs_on']}/{summary['plugs_total']} on")
     lines.append(f"  ⚡ Power: {summary['total_power']:.1f}W")
-    
+
     return "\n".join(lines)
+
 
 def format_servers_summary(servers: List[Dict]) -> str:
     """Format servers summary for servers list view"""
     lines = []
     online_count = sum(1 for s in servers if s.get("online", False))
     total_count = len(servers)
-    
+
     lines.append(f"🖥️ *Servers:* {online_count}/{total_count} online")
-    
+
     if servers:
         lines.append("")
         for server in servers:
@@ -28,8 +32,9 @@ def format_servers_summary(servers: List[Dict]) -> str:
             if server.get("power"):
                 power_info = f" - {server['power']['current']}W"
             lines.append(f"{status} {server['name']}{power_info}")
-    
+
     return "\n".join(lines)
+
 
 def format_plugs_summary(plugs: List[Dict]) -> str:
     """Format plugs summary for plugs list view"""
@@ -37,9 +42,9 @@ def format_plugs_summary(plugs: List[Dict]) -> str:
     on_count = sum(1 for p in plugs if p.get("state") == "on" and p.get("online"))
     total_count = len(plugs)
     online_count = sum(1 for p in plugs if p.get("online"))
-    
+
     lines.append(f"🔌 *Plugs:* {on_count}/{total_count} on ({online_count} online)")
-    
+
     if plugs:
         lines.append("")
         for plug in plugs:
@@ -47,10 +52,13 @@ def format_plugs_summary(plugs: List[Dict]) -> str:
                 lines.append(f"🔴 {plug['name']} - offline")
             else:
                 state_icon = "⚡" if plug["state"] == "on" else "⭕"
-                power_info = f" - {plug['current_power']}W" if plug.get('current_power') else ""
+                power_info = (
+                    f" - {plug['current_power']}W" if plug.get("current_power") else ""
+                )
                 lines.append(f"{state_icon} {plug['name']}{power_info}")
-    
+
     return "\n".join(lines)
+
 
 def format_status_text(status: Dict) -> str:
     """Format full status as Telegram message (CLI-like)"""
@@ -62,8 +70,12 @@ def format_status_text(status: Dict) -> str:
 
     # Summary section
     lines.append("*Summary:*")
-    lines.append(f"  Servers: {summary['servers_online']}/{summary['servers_total']} online")
-    lines.append(f"  Plugs: {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)")
+    lines.append(
+        f"  Servers: {summary['servers_online']}/{summary['servers_total']} online"
+    )
+    lines.append(
+        f"  Plugs: {summary['plugs_on']}/{summary['plugs_total']} on ({summary['plugs_online']} reachable)"
+    )
     lines.append(f"  Power: {summary['total_power']:.1f}W total")
 
     # Servers section
@@ -81,22 +93,24 @@ def format_status_text(status: Dict) -> str:
                 time_info.append(f"UP:{server['uptime']}")
             if server.get("downtime"):
                 time_info.append(f"DOWN:{server['downtime']}")
-            
+
             # Add monthly stats if available from plug
             if server.get("power"):
                 power = server["power"]
                 # Monthly uptime from plug runtime
                 if power.get("month_runtime"):
-                    month_hours = power["month_runtime"] / 60  # Convert minutes to hours
+                    month_hours = (
+                        power["month_runtime"] / 60
+                    )  # Convert minutes to hours
                     time_info.append(f"UP_M:{month_hours:.1f}h")
-                
+
                 # Calculate downtime (rough estimate: hours in month - uptime)
                 # Assuming ~720 hours per month (30 days * 24 hours)
                 if power.get("month_runtime"):
                     month_hours = power["month_runtime"] / 60
                     estimated_downtime = max(0, 720 - month_hours)
                     time_info.append(f"DOWN_M:{estimated_downtime:.1f}h")
-            
+
             if time_info:
                 lines.append(f"  {' | '.join(time_info)}")
 
@@ -109,26 +123,29 @@ def format_status_text(status: Dict) -> str:
 
                 # Inline previous day/month if available
                 today_line = f"  Today: {power['today_energy']}Wh"
-                if power.get('today_cost', 0) > 0:
+                if power.get("today_cost", 0) > 0:
                     today_line += f" ({power['today_cost']:.2f}€)"
-                if power.get('prev_day_energy') is not None:
+                if power.get("prev_day_energy") is not None:
                     today_line += f"  | prev: {power['prev_day_energy']}Wh"
-                    if power.get('prev_day_cost', 0) > 0:
+                    if power.get("prev_day_cost", 0) > 0:
                         today_line += f" ({power['prev_day_cost']:.2f}€)"
                 lines.append(today_line)
 
                 month_line = f"  Month: {power['month_energy']}Wh"
-                if power.get('month_cost', 0) > 0:
+                if power.get("month_cost", 0) > 0:
                     month_line += f" ({power['month_cost']:.2f}€)"
-                if power.get('prev_month_energy') is not None:
+                if power.get("prev_month_energy") is not None:
                     month_line += f"  | prev: {power['prev_month_energy']}Wh"
-                    if power.get('prev_month_cost', 0) > 0:
+                    if power.get("prev_month_cost", 0) > 0:
                         month_line += f" ({power['prev_month_cost']:.2f}€)"
                 lines.append(month_line)
 
     # Plugs section (standalone plugs not attached to servers)
-    standalone_plugs = [p for p in status.get("plugs", [])
-                      if not any(s.get("plug") == p["name"] for s in status.get("servers", []))]
+    standalone_plugs = [
+        p
+        for p in status.get("plugs", [])
+        if not any(s.get("plug") == p["name"] for s in status.get("servers", []))
+    ]
     if standalone_plugs:
         lines.append("")
         lines.append("*🔌 Plugs:*")
@@ -147,24 +164,25 @@ def format_status_text(status: Dict) -> str:
             lines.append(power_line)
 
             today_line = f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
-            if plug.get('today_cost', 0) > 0:
+            if plug.get("today_cost", 0) > 0:
                 today_line += f" - {plug['today_cost']:.2f}€"
-            if plug.get('prev_day_energy') is not None:
+            if plug.get("prev_day_energy") is not None:
                 today_line += f"  | prev: {plug['prev_day_energy']}Wh"
-                if plug.get('prev_day_cost', 0) > 0:
+                if plug.get("prev_day_cost", 0) > 0:
                     today_line += f" ({plug['prev_day_cost']:.2f}€)"
             lines.append(today_line)
 
             month_line = f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
-            if plug.get('month_cost', 0) > 0:
+            if plug.get("month_cost", 0) > 0:
                 month_line += f" - {plug['month_cost']:.2f}€"
-            if plug.get('prev_month_energy') is not None:
+            if plug.get("prev_month_energy") is not None:
                 month_line += f"  | prev: {plug['prev_month_energy']}Wh"
-                if plug.get('prev_month_cost', 0) > 0:
+                if plug.get("prev_month_cost", 0) > 0:
                     month_line += f" ({plug['prev_month_cost']:.2f}€)"
             lines.append(month_line)
 
     return "\n".join(lines)
+
 
 def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) -> str:
     """Format single server status as Telegram message"""
@@ -189,14 +207,14 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
         time_info.append(f"UP:{server['uptime']}")
     if server.get("downtime"):
         time_info.append(f"DOWN:{server['downtime']}")
-    
+
     # Add monthly stats if available from plug
     if server.get("power") and server["power"].get("month_runtime"):
         month_hours = server["power"]["month_runtime"] / 60
         time_info.append(f"UP_M:{month_hours:.1f}h")
         estimated_downtime = max(0, 720 - month_hours)
         time_info.append(f"DOWN_M:{estimated_downtime:.1f}h")
-    
+
     if time_info:
         lines.append(f"*Time:* {' | '.join(time_info)}")
 
@@ -210,20 +228,20 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
         lines.append(power_line)
 
         today_line = f"  Today: {power['today_energy']}Wh"
-        if power.get('today_cost', 0) > 0:
+        if power.get("today_cost", 0) > 0:
             today_line += f" ({power['today_cost']:.2f}€)"
-        if power.get('prev_day_energy') is not None:
+        if power.get("prev_day_energy") is not None:
             today_line += f"  | prev: {power['prev_day_energy']}Wh"
-            if power.get('prev_day_cost', 0) > 0:
+            if power.get("prev_day_cost", 0) > 0:
                 today_line += f" ({power['prev_day_cost']:.2f}€)"
         lines.append(today_line)
 
         month_line = f"  Month: {power['month_energy']}Wh"
-        if power.get('month_cost', 0) > 0:
+        if power.get("month_cost", 0) > 0:
             month_line += f" ({power['month_cost']:.2f}€)"
-        if power.get('prev_month_energy') is not None:
+        if power.get("prev_month_energy") is not None:
             month_line += f"  | prev: {power['prev_month_energy']}Wh"
-            if power.get('prev_month_cost', 0) > 0:
+            if power.get("prev_month_cost", 0) > 0:
                 month_line += f" ({power['prev_month_cost']:.2f}€)"
         lines.append(month_line)
 
@@ -233,41 +251,41 @@ def format_server_status_text(server: Dict, plug_status: Optional[Dict] = None) 
 def format_plug_status_text(plug: Dict) -> str:
     """Format single plug status as Telegram message"""
     lines = []
-    
+
     if not plug.get("online"):
         return f"🔌 *{plug['name']}* 🔴\n\n*Status:* Offline\n*IP:* `{plug['ip']}`\n*Error:* {plug.get('error', 'Unknown')}"
 
     state_icon = "⚡" if plug["state"] == "on" else "⭕"
     state_text = "ON" if plug["state"] == "on" else "OFF"
-    
+
     lines.append(f"🔌 *{plug['name']}* {state_icon}")
     lines.append("")
     lines.append(f"*Status:* {state_text}")
     lines.append(f"*IP:* `{plug['ip']}`")
-    
+
     lines.append("")
     lines.append("*⚡ Power Stats:*")
-    
+
     power_line = f"  Current: {plug['current_power']}W"
     if plug.get("current_cost_per_hour", 0) > 0:
         power_line += f" ({plug['current_cost_per_hour']:.4f}€/h)"
     lines.append(power_line)
 
     today_line = f"  Today: {plug['today_energy']}Wh ({plug['today_runtime']}h)"
-    if plug.get('today_cost', 0) > 0:
+    if plug.get("today_cost", 0) > 0:
         today_line += f" - {plug['today_cost']:.2f}€"
-    if plug.get('prev_day_energy') is not None:
+    if plug.get("prev_day_energy") is not None:
         today_line += f"  | prev: {plug['prev_day_energy']}Wh"
-        if plug.get('prev_day_cost', 0) > 0:
+        if plug.get("prev_day_cost", 0) > 0:
             today_line += f" ({plug['prev_day_cost']:.2f}€)"
     lines.append(today_line)
 
     month_line = f"  Month: {plug['month_energy']}Wh ({plug['month_runtime']}h)"
-    if plug.get('month_cost', 0) > 0:
+    if plug.get("month_cost", 0) > 0:
         month_line += f" - {plug['month_cost']:.2f}€"
-    if plug.get('prev_month_energy') is not None:
+    if plug.get("prev_month_energy") is not None:
         month_line += f"  | prev: {plug['prev_month_energy']}Wh"
-        if plug.get('prev_month_cost', 0) > 0:
+        if plug.get("prev_month_cost", 0) > 0:
             month_line += f" ({plug['prev_month_cost']:.2f}€)"
     lines.append(month_line)
 
