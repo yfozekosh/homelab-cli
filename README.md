@@ -150,9 +150,13 @@ lab server add workstation workstation.local AA:BB:CC:DD:EE:FF office-plug
 lab plug list
 lab server list
 
-# Power control
+# Power control (server — turns on plug, then WOL)
 lab on workstation
 lab off workstation
+
+# Direct plug control (no server entry needed)
+lab plug on office-plug
+lab plug off office-plug
 
 # Consolidated status (follow mode refreshes continuously)
 lab status
@@ -191,6 +195,36 @@ The Telegram bot is optional. When enabled, it provides an interactive menu for 
 
 The bot is restricted to the comma-separated list of user IDs in `TELEGRAM_USER_IDS`. Requests from other users are rejected.
 
+## Pushing via Docker (separate GitHub identity)
+
+If the host machine's SSH key is linked to a different GitHub user, push from a disposable container with its own deploy key.
+
+```bash
+# 1. Generate a deploy key in the host home directory (not ~/.ssh)
+ssh-keygen -t ed25519 -f ~/github_deploy_key -N ""
+
+# 2. Add the public key to GitHub → Settings → SSH keys (with write access)
+cat ~/github_deploy_key.pub
+
+# 3. Push from an Alpine container using the deploy key
+docker run --rm --network host \
+  -v "$(pwd)":/repo \
+  -v ~/github_deploy_key:/tmp/deploy_key:ro \
+  -w /repo \
+  alpine:latest sh -c '
+    apk add --no-cache git openssh-client > /dev/null 2>&1 &&
+    mkdir -p /root/.ssh &&
+    cp /tmp/deploy_key /root/.ssh/id_ed25519 &&
+    chmod 600 /root/.ssh/id_ed25519 &&
+    git config --global user.email "your@email.com" &&
+    git config --global user.name "Your Name" &&
+    git config --global --add safe.directory /repo &&
+    GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin master
+  '
+```
+
+> **Why `--network host`?** GitHub SSH (port 22) may be unreachable from Docker's default bridge network on some setups.
+
 ## API and security
 
 - All API endpoints require an API key via the `X-API-Key` header.
@@ -210,6 +244,9 @@ Requirements:
 
 ## Documentation
 
+- [Components](docs/components.md) — component interaction diagram
+- [Modules](docs/modules.md) — client/server module dependency graphs
+- [Power Flows](docs/power-flow.md) — power on/off sequence diagrams
 - Server deployment: `docs/SERVER_DEPLOYMENT.md`
 - Client installation: `docs/CLIENT_INSTALLATION.md`
 - Architecture notes: `docs/ARCHITECTURE.md`
