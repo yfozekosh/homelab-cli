@@ -19,13 +19,11 @@ from telegram.ext import (
 from telegram.error import (
     TimedOut,
     NetworkError,
-    Unauthorized,
     Forbidden,
     BadRequest,
-    ChatNotFound,
     RetryAfter,
     Conflict,
-    ServiceUnavailable,
+    InvalidToken,
 )
 
 from ..dependencies import get_service_container
@@ -194,18 +192,14 @@ class HomelabBot:
                 sent_count += 1
                 self.broadcast_failures = 0  # Reset on success
                 self.last_activity = time.time()
-            except Unauthorized as e:
-                # Token is invalid or bot was blocked - critical error
-                logger.error(f"Unauthorized (token invalid/bot blocked) for user {user_id}: {e}")
+            except InvalidToken as e:
+                # Token is invalid - critical error
+                logger.error(f"Invalid token: {e}")
                 self.token_valid = False
                 self.broadcast_failures += 1
             except Forbidden as e:
-                # Bot was blocked by user
-                logger.error(f"Forbidden (bot blocked) by user {user_id}: {e}")
-                self.broadcast_failures += 1
-            except ChatNotFound as e:
-                # User deleted chat or bot was removed
-                logger.error(f"Chat not found for user {user_id}: {e}")
+                # Bot was blocked by user or chat not found
+                logger.error(f"Forbidden (bot blocked or chat not found) for user {user_id}: {e}")
                 self.broadcast_failures += 1
             except RetryAfter as e:
                 # Rate limited - wait and retry
@@ -223,10 +217,6 @@ class HomelabBot:
             except (TimedOut, NetworkError) as e:
                 # Network issues - may recover
                 logger.warning(f"Network error sending to user {user_id}: {e}")
-                self.broadcast_failures += 1
-            except ServiceUnavailable as e:
-                # Telegram server issue
-                logger.error(f"Telegram service unavailable: {e}")
                 self.broadcast_failures += 1
             except BadRequest as e:
                 # Invalid message content
@@ -300,7 +290,7 @@ class HomelabBot:
                         # Check for critical failures
                         if not self.token_valid:
                             logger.error("Token marked as invalid - exiting to allow restart")
-                            raise Unauthorized("Token invalid")
+                            raise InvalidToken("Token invalid")
 
                         if self.broadcast_failures >= self.max_broadcast_failures:
                             logger.error("Too many broadcast failures - exiting to allow restart")
@@ -309,7 +299,7 @@ class HomelabBot:
                     logger.warning("Telegram bot updater not available")
                     break
 
-            except Unauthorized as e:
+            except InvalidToken as e:
                 # Token is invalid - no point retrying
                 logger.error(f"Telegram token is invalid: {e}")
                 raise
@@ -320,15 +310,6 @@ class HomelabBot:
                 if retry_count < max_retries:
                     logger.info("Retrying in case of transient conflict...")
                     await asyncio.sleep(10)
-                    continue
-                raise
-            except ServiceUnavailable as e:
-                # Telegram server issues - retry with backoff
-                logger.error(f"Telegram service unavailable: {e}")
-                retry_count += 1
-                if retry_count < max_retries:
-                    logger.info(f"Retrying in {5 * retry_count}s...")
-                    await asyncio.sleep(5 * retry_count)
                     continue
                 raise
             except (TimedOut, NetworkError) as e:
@@ -404,8 +385,8 @@ class HomelabBot:
             if bot_info:
                 self.token_valid = True
                 logger.debug(f"Token validation successful: @{bot_info.username}")
-        except Unauthorized as e:
-            logger.error(f"Token validation failed (Unauthorized): {e}")
+        except InvalidToken as e:
+            logger.error(f"Token validation failed (InvalidToken): {e}")
             self.token_valid = False
         except Exception as e:
             logger.warning(f"Token validation encountered error (may be transient): {e}")
