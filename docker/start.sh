@@ -75,13 +75,32 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
     echo "Starting Telegram bot..."
     (
         attempt=0
+        max_delay=60
         while true; do
             attempt=$((attempt + 1))
+            # Exponential backoff: 5s, 10s, 20s, 40s, 60s, 60s...
+            delay=$((5 * (2 ** (attempt - 1))))
+            if [ $delay -gt $max_delay ]; then
+                delay=$max_delay
+            fi
+            
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot starting (attempt #${attempt})..."
+            start_time=$(date +%s)
+            
             python -m server.telegram_bot
             exit_code=$?
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot exited with code ${exit_code}, restarting in 5s..."
-            sleep 5
+            
+            end_time=$(date +%s)
+            runtime=$((end_time - start_time))
+            
+            # If bot ran for more than 5 minutes, reset attempt counter (stable run)
+            if [ $runtime -gt 300 ]; then
+                attempt=0
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot was stable (ran ${runtime}s), resetting backoff"
+            fi
+            
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot exited with code ${exit_code} after ${runtime}s, restarting in ${delay}s..."
+            sleep $delay
         done
     ) &
     BOT_PID=$!

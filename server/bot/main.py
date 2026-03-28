@@ -16,6 +16,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from telegram.error import TimedOut, NetworkError
 
 from ..dependencies import get_service_container
 from ..logging_config import setup_logging
@@ -68,8 +69,19 @@ class HomelabBot:
         self.handlers = BotHandlers(self.container, self.allowed_users)
         self.handlers.register_listeners()
 
-        # Build application
-        self.app = Application.builder().token(self.token).build()
+        # Build application with robust connection pooling
+        self.app = (
+            Application.builder()
+            .token(self.token)
+            .connection_pool_size(8)
+            .read_timeout(30)
+            .connect_timeout(30)
+            .write_timeout(30)
+            .pool_timeout(10)
+            .get_updates_connection_pool_size(4)
+            .get_updates_read_timeout(60)
+            .build()
+        )
         self._setup_handlers()
         self._setup_event_listeners()
 
@@ -157,67 +169,94 @@ class HomelabBot:
         )
 
     async def run(self):
-        """Run the bot"""
+        """Run the bot with automatic recovery from connection issues"""
         logger.info("Initializing Telegram bot...")
         logger.info("Allowed users: %d configured", len(self.allowed_users))
-        await self.app.initialize()
-        logger.info("Telegram bot application initialized")
-        await self.app.start()
-        if self.app.updater:
-            await self.app.updater.start_polling()
-            logger.info("Telegram bot polling started")
-        else:
-            logger.warning("Telegram bot updater not available")
-
-        # Send startup message to allowed users
-        if self.allowed_users:
-            # Load build info
-            build_info = {}
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
             try:
-                import json
+                await self.app.initialize()
+                logger.info("Telegram bot application initialized")
+                
+                if self.app.updater:
+                    await self.app.updater.start_polling()
+                    logger.info("Telegram bot polling started")
+                    
+                    # Send startup message to allowed users
+                    if self.allowed_users:
+                        # Load build info
+                        build_info = {}
+                        try:
+                            import json
 
-                # Try relative to module first, then absolute
-                paths = ["server/build_info.json", "build_info.json"]
-                for path in paths:
-                    if os.path.exists(path):
-                        with open(path, "r") as f:
-                            build_info = json.load(f)
-                        break
+                            # Try relative to module first, then absolute
+                            paths = ["server/build_info.json", "build_info.json"]
+                            for path in paths:
+                                if os.path.exists(path):
+                                    with open(path, "r") as f:
+                                        build_info = json.load(f)
+                                    break
+                        except Exception as e:
+                            logger.warning(f"Failed to load build info: {e}")
+
+                        message_text = "🚀 *Homelab Bot Deployed and Ready!*\n\n"
+
+                        if build_info:
+                            message_text += (
+                                f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
+                            )
+                            message_text += (
+                                f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
+                            )
+                            message_text += (
+                                f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
+                            )
+                            message_text += (
+                                f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
+                            )
+
+                            if build_info.get("latest_changes"):
+                                message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
+
+                        for user_id in self.allowed_users:
+                            try:
+                                await self.app.bot.send_message(
+                                    chat_id=user_id, text=message_text, parse_mode="Markdown"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to send startup message to {user_id}: {e}")
+                    
+                    # Keep running - updater will handle reconnection
+                    while True:
+                        await asyncio.sleep(30)
+                        retry_count = 0  # Reset on successful cycle
+                else:
+                    logger.warning("Telegram bot updater not available")
+                    break
+                    
+            except (TimedOut, NetworkError) as e:
+                retry_count += 1
+                logger.warning(f"Network error (attempt {retry_count}/{max_retries}): {e}")
+                if retry_count < max_retries:
+                    logger.info("Attempting to reconnect...")
+                    await asyncio.sleep(5)
+                    # Try to recover by reinitializing
+                    try:
+                        if self.app.updater:
+                            await self.app.updater.stop()
+                        await self.app.shutdown()
+                    except Exception:
+                        pass
+                    continue
+                else:
+                    logger.error("Max retries reached, exiting to allow restart")
+                    raise
             except Exception as e:
-                logger.warning(f"Failed to load build info: {e}")
-
-            message_text = "🚀 *Homelab Bot Deployed and Ready!*\n\n"
-
-            if build_info:
-                message_text += (
-                    f"📅 *Build Date:* {build_info.get('build_date', 'Unknown')}\n"
-                )
-                message_text += (
-                    f"📅 *Commit Date:* {build_info.get('commit_date', 'Unknown')}\n"
-                )
-                message_text += (
-                    f"🔖 *Commit:* `{build_info.get('commit_sha', 'Unknown')[:7]}`\n"
-                )
-                message_text += (
-                    f"📝 *Message:* {build_info.get('commit_message', 'Unknown')}\n"
-                )
-
-                if build_info.get("latest_changes"):
-                    message_text += f"\n📋 *Latest Changes:*\n```\n{build_info['latest_changes']}\n```"
-
-                message_text += "/start\n"
-
-            for user_id in self.allowed_users:
-                try:
-                    await self.app.bot.send_message(
-                        chat_id=user_id, text=message_text, parse_mode="Markdown"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to send startup message to {user_id}: {e}")
-
-        # Keep running
-        while True:
-            await asyncio.sleep(1)
+                logger.error(f"Unexpected error: {e}", exc_info=True)
+                raise
 
     async def stop(self):
         """Stop the bot"""
