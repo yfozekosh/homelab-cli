@@ -76,6 +76,8 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
     (
         attempt=0
         max_delay=60
+        watchdog_timeout=180  # Kill bot if no activity for 3 minutes
+        
         while true; do
             attempt=$((attempt + 1))
             # Exponential backoff: 5s, 10s, 20s, 40s, 60s, 60s...
@@ -87,7 +89,26 @@ if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Bot starting (attempt #${attempt})..."
             start_time=$(date +%s)
             
-            python -m server.telegram_bot
+            # Start bot in background so we can monitor it
+            python -m server.telegram_bot &
+            BOT_INNER_PID=$!
+            
+            # Watchdog loop - monitor bot process
+            while kill -0 $BOT_INNER_PID 2>/dev/null; do
+                current_time=$(date +%s)
+                elapsed=$((current_time - start_time))
+                
+                # Check if bot process is still alive
+                if ! kill -0 $BOT_INNER_PID 2>/dev/null; then
+                    break
+                fi
+                
+                # Watchdog: kill if no progress for too long (check logs for activity)
+                # For now, just monitor if process exists - more sophisticated checks
+                # would parse logs for "polling started" or similar
+                sleep 10
+            done
+            
             exit_code=$?
             
             end_time=$(date +%s)

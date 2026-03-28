@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class BotHandlers:
-    def __init__(self, container, allowed_users: List[int]):
+    def __init__(self, container, allowed_users: List[int], bot=None):
         self.config = container.config
         self.plug_service = container.plug_service
         self.server_service = container.server_service
@@ -28,6 +28,13 @@ class BotHandlers:
         self.status_service = container.status_service
         self.allowed_users = allowed_users
         self.event_service = container.event_service
+        self.bot = bot  # Reference to bot for tracked tasks
+
+    def _create_task(self, coro):
+        """Create a tracked task if bot reference is available"""
+        if self.bot and hasattr(self.bot, 'create_tracked_task'):
+            return self.bot.create_tracked_task(coro)
+        return asyncio.create_task(coro)
 
     def register_listeners(self):
         """Register event listeners. Call once after construction."""
@@ -754,7 +761,7 @@ class BotHandlers:
                     ),
                 )
 
-        asyncio.create_task(_run())
+        self._create_task(_run())
 
     async def _power_off_server(self, query, server_name: str):
         """Power off a server (via button, non-blocking)"""
@@ -883,7 +890,7 @@ class BotHandlers:
                     ),
                 )
 
-        asyncio.create_task(_run())
+        self._create_task(_run())
 
     async def _show_plug_details(self, query, plug_name: str):
         """Show plug details with actions"""
@@ -1187,7 +1194,7 @@ class BotHandlers:
                 )
                 await status_msg.edit_text(f"❌ Error: {str(e)}")
 
-        asyncio.create_task(_run())
+        self._create_task(_run())
 
     async def _power_off_server_msg(self, message, server_name: str):
         """Power off server via command (with progress, non-blocking)"""
@@ -1288,7 +1295,7 @@ class BotHandlers:
                 )
                 await status_msg.edit_text(f"❌ Error: {str(e)}")
 
-        asyncio.create_task(_run())
+        self._create_task(_run())
 
     async def handle_status_update(self, updateObj):
         """Handle deploy status update event"""

@@ -138,6 +138,65 @@ async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
 
 
+@app.get("/bot/health")
+async def bot_health_check():
+    """Check Telegram bot health status
+    
+    Returns bot status based on heartbeat file updated by the bot process.
+    """
+    import os
+    import time
+    
+    heartbeat_file = "/app/data/bot_heartbeat.json"
+    
+    try:
+        if not os.path.exists(heartbeat_file):
+            return {
+                "status": "unknown",
+                "message": "No heartbeat file found - bot may not be running"
+            }
+        
+        with open(heartbeat_file, "r") as f:
+            heartbeat = json.load(f)
+        
+        last_heartbeat = heartbeat.get("timestamp", 0)
+        age = time.time() - last_heartbeat
+        
+        if age > 120:  # 2 minutes old
+            return {
+                "status": "unhealthy",
+                "message": f"Bot heartbeat is {age:.0f}s old",
+                "last_heartbeat": heartbeat.get("last_activity"),
+                "age_seconds": round(age, 1)
+            }
+        elif age > 60:  # 1-2 minutes old
+            return {
+                "status": "degraded",
+                "message": f"Bot heartbeat is {age:.0f}s old",
+                "last_heartbeat": heartbeat.get("last_activity"),
+                "age_seconds": round(age, 1)
+            }
+        else:
+            return {
+                "status": "healthy",
+                "message": "Bot is running normally",
+                "last_heartbeat": heartbeat.get("last_activity"),
+                "token_valid": heartbeat.get("token_valid", True),
+                "broadcast_failures": heartbeat.get("broadcast_failures", 0),
+                "age_seconds": round(age, 1)
+            }
+    except json.JSONDecodeError as e:
+        return {
+            "status": "error",
+            "message": f"Invalid heartbeat file: {e}"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
 @app.get("/status", dependencies=[Depends(verify_api_key)])
 async def get_status(status_service: StatusServiceDep):
     """Get comprehensive status of all servers and plugs"""

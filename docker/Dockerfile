@@ -26,9 +26,14 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV CONFIG_PATH=/app/data/config.json
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+# Health check - verifies both API and bot health
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "\
+import requests, sys; \
+r = requests.get('http://localhost:8000/health', timeout=5); \
+b = requests.get('http://localhost:8000/bot/health', timeout=5); \
+bd = b.json(); \
+sys.exit(0 if r.json().get('status') == 'healthy' and bd.get('status') in ['healthy', 'unknown'] else 1)"
 
 # Start script that runs both API server and Telegram bot
 COPY docker/start.sh /app/start.sh
